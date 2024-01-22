@@ -14,6 +14,8 @@ export class ThreeHandler {
         this.div = document.getElementById('threeJsDiv') as HTMLElement;
 
         this.renderer = new THREE.WebGLRenderer({antialias: true});
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
         this.div.appendChild(this.renderer.domElement);
 
@@ -25,6 +27,8 @@ export class ThreeHandler {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xaaaaaa);
         const light = new THREE.PointLight(0xffffff, 5, 5);
+        light.castShadow = true;
+        light.shadow.mapSize = new THREE.Vector2(4096, 4096);
         light.position.set(-0.5, 1, 1);
         this.scene.add(light);
     }
@@ -98,7 +102,7 @@ export class ThreeHandler {
         })
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
         plane.receiveShadow = true;
-        plane.translateY(-0.01);
+        plane.translateY(-0.0001);
         this.scene.add(plane);
 
         const grid = new THREE.GridHelper(2.25, 100);
