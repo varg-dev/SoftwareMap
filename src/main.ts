@@ -1,16 +1,13 @@
-import * as THREE from 'three';
+import { parse } from 'csv-parse/browser/esm/sync';
+import {ThreeHandler} from "./ThreeHandler.ts";
 
-const div = document.getElementById('threeJsDiv') as HTMLElement;
+let csv: Array<Array<string>>;
+const fileUpload = document.getElementById('fileUpload') as HTMLInputElement;
+fileUpload.addEventListener('change', async () => {
+    if (!fileUpload.files) return;
+    csv = await parse(await fileUpload.files[0].text());
+    threeHandler.createScene(csv);
+    console.log(csv);
+});
 
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(div.clientWidth, div.clientHeight);
-div.appendChild(renderer.domElement);
-
-const camera = new THREE.PerspectiveCamera(75, div.clientWidth / div.clientHeight, 0.1, 1000);
-camera.position.z = 5;
-
-const scene = new THREE.Scene();
-const box = new THREE.Mesh(new THREE.BoxGeometry(1), new THREE.MeshBasicMaterial());
-scene.add(box);
-
-renderer.render(scene, camera);
+const threeHandler = new ThreeHandler();

@@ -2,8 +2,15 @@ body {
   margin: 0;
 }
 
+#buttons {
+  position: absolute;
+  z-index: 2;
+  background-color: darkgray;
+}
+
 #threeJsDiv {
   width: 100%;
   height: 100vh;
   border: none;
+  z-index: 0;
 }
