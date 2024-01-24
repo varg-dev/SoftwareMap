@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import {max} from "three/examples/jsm/nodes/math/MathNode";
 
 export class ThreeHandler {
     protected updateRequested: boolean;
@@ -11,6 +12,11 @@ export class ThreeHandler {
     protected scene: THREE.Scene;
     protected meshGroup: THREE.Group;
     protected instancedMeshes: Array<THREE.InstancedMesh>;
+    protected instancePositionMatrices: Array<Array<THREE.Matrix4>>;
+    protected instanceSizes: Array<Array<{basicScaleFactor: number, variationFactor: number}>>;
+
+    protected basicSize: number;
+    protected maxVariation: number;
 
     constructor() {
         this.updateRequested = false;
@@ -32,6 +38,10 @@ export class ThreeHandler {
         this.setupScene();
 
         this.instancedMeshes = [];
+        this.instanceSizes = [];
+        this.instancePositionMatrices = [];
+        this.basicSize = 0.1;
+        this.maxVariation = 0.5;
     }
 
     protected setupScene() {
@@ -129,6 +139,12 @@ export class ThreeHandler {
             if (!positions[meshIndex]) positions[meshIndex] = [];
             positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(csv[csvIndex][xIndex]), Number(csv[csvIndex][yIndex])), min, max));
 
+            if (!this.instanceSizes[meshIndex]) this.instanceSizes[meshIndex] = [];
+            this.instanceSizes[meshIndex].push({
+                basicScaleFactor: 1,
+                variationFactor: Number(csv[csvIndex][commentIndex])
+            });
+
             if (!sizes[meshIndex]) sizes[meshIndex] = [];
             sizes[meshIndex].push(Number(csv[csvIndex][commentIndex]));
         }
@@ -136,31 +152,44 @@ export class ThreeHandler {
         /*
          * Create an InstancedMesh from each Mesh loaded from the GLTF, as well as position and scale their instances.
          */
-        for (let i = 0; i < meshes.length; ++i) {
-            const originalMesh = meshes[i];
-            const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, originalMesh.material, instanceCounter[i]);
+        for (let meshId = 0; meshId < meshes.length; ++meshId) {
+            const originalMesh = meshes[meshId];
+            const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, originalMesh.material, instanceCounter[meshId]);
+            this.instancedMeshes[meshId] = instancedMesh;
             instancedMesh.receiveShadow = true;
             instancedMesh.castShadow = true;
 
             const largestExtent = new THREE.Box3().setFromObject(originalMesh, true).getBoundingSphere(new THREE.Sphere).radius * 2;
-            const scaleFactor = (1 / largestExtent) * 0.1;
-            const maxVariation = 0.5;
+            const scaleFactor = (1 / largestExtent);
 
-            for (let j = 0; j < instanceCounter[i]; ++j) {
-                const actualScaleFactor = scaleFactor * (1 + (sizes[i][j] * 2 - 1) * maxVariation);
-
+            for (let instanceId = 0; instanceId < instanceCounter[meshId]; ++instanceId) {
+                // Order of transformation operations does not matter here
                 const instanceMatrix = new THREE.Matrix4();
-                instanceMatrix.scale(new THREE.Vector3(actualScaleFactor, actualScaleFactor, actualScaleFactor));
-                instanceMatrix.setPosition(positions[i][j].x, 0, positions[i][j].y);
-                instancedMesh.setMatrixAt(j, instanceMatrix);
+                instanceMatrix.setPosition(positions[meshId][instanceId].x, 0, positions[meshId][instanceId].y);
+
+                if (!this.instancePositionMatrices[meshId]) this.instancePositionMatrices[meshId] = [];
+                this.instancePositionMatrices[meshId][instanceId] = instanceMatrix;
+
+                this.instanceSizes[meshId][instanceId].basicScaleFactor = scaleFactor;
+                this.setInstanceMatrix(meshId, instanceId);
             }
 
             instancedMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
             instancedMesh.instanceMatrix.needsUpdate = true;
             this.meshGroup.add(instancedMesh);
-
-            this.instancedMeshes[i] = instancedMesh;
         }
+    }
+
+    // Option setters
+
+    public setMaxVariation(maxVariation: number) {
+        this.maxVariation = maxVariation;
+        this.updateInstanceMatrices();
+    }
+
+    public setBasicSize(basicSize: number) {
+        this.basicSize = basicSize;
+        this.updateInstanceMatrices();
     }
 
     // Helpers
@@ -171,6 +200,27 @@ export class ThreeHandler {
 
     protected calculateIndex(optionLine: string[], locIndex: number) {
         return Math.floor(Number(optionLine[locIndex]) * (this.instancedMeshes.length - 1));
+    }
+
+    protected updateInstanceMatrices() {
+        for (let meshId = 0; meshId < this.instanceSizes.length; ++meshId) {
+            if (!this.instanceSizes[meshId]) continue;
+
+            for (let instanceId = 0; instanceId < this.instanceSizes[meshId].length; ++instanceId) {
+                this.setInstanceMatrix(meshId, instanceId);
+            }
+
+            this.instancedMeshes[meshId].instanceMatrix.needsUpdate = true;
+        }
+
+        this.render();
+    }
+
+    protected setInstanceMatrix(meshId: number, instanceId: number) {
+        const instanceMatrix = this.instancePositionMatrices[meshId][instanceId].clone();
+        const scaleFactor = this.instanceSizes[meshId][instanceId].basicScaleFactor * this.basicSize * (1 + (this.instanceSizes[meshId][instanceId].variationFactor * 2 - 1) * this.maxVariation);
+        instanceMatrix.scale(new THREE.Vector3(scaleFactor, scaleFactor, scaleFactor));
+        this.instancedMeshes[meshId].setMatrixAt(instanceId, instanceMatrix);
     }
 
     protected findExtrema(csv: Array<Array<string>>, xIndex: number, yIndex: number) {
