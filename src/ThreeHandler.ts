@@ -1,19 +1,22 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+//import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { WorldInHandControls } from "./worldInHandControls.ts";
 import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import {max} from "three/examples/jsm/nodes/math/MathNode";
+import {FloatType} from "three";
 
 export class ThreeHandler {
     protected updateRequested: boolean;
     protected div: HTMLElement;
     protected renderer: THREE.WebGLRenderer;
     protected camera: THREE.PerspectiveCamera;
-    protected controls: OrbitControls;
+    protected controls: WorldInHandControls;
     protected scene: THREE.Scene;
     protected meshGroup: THREE.Group;
     protected instancedMeshes: Array<THREE.InstancedMesh>;
     protected instancePositionMatrices: Array<Array<THREE.Matrix4>>;
     protected instanceSizes: Array<Array<{basicScaleFactor: number, variationFactor: number}>>;
+
+    protected renderTarget: THREE.WebGLRenderTarget;
 
     protected basicSize: number;
     protected maxVariation: number;
@@ -28,12 +31,14 @@ export class ThreeHandler {
         this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
 
+        this.renderTarget = new THREE.WebGLRenderTarget(this.div.clientWidth * this.renderer.getPixelRatio(), this.div.clientHeight * this.renderer.getPixelRatio());
+        this.renderTarget.depthTexture = new THREE.DepthTexture(this.renderTarget.width, this.renderTarget.height, FloatType);
+        this.renderTarget.depthTexture.format = THREE.DepthFormat;
+
         this.div.appendChild(this.renderer.domElement);
 
-        this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.01, 1000);
         this.camera.position.set(0, 0.5, 1.35);
-
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 
         this.setupScene();
 
@@ -73,6 +78,8 @@ export class ThreeHandler {
         this.meshGroup = new THREE.Group();
         this.scene.add(this.meshGroup);
 
+        this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderTarget, this.renderer, this.scene);
+
         this.startRendering();
     }
 
@@ -95,6 +102,7 @@ export class ThreeHandler {
             this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
             this.camera.aspect = this.div.clientWidth / this.div.clientHeight;
             this.renderer.setPixelRatio(window.devicePixelRatio);
+            this.renderTarget.setSize(this.div.clientWidth * this.renderer.getPixelRatio(), this.div.clientHeight * this.renderer.getPixelRatio());
             this.camera.updateProjectionMatrix();
 
             this.render();
@@ -195,7 +203,12 @@ export class ThreeHandler {
     // Helpers
 
     protected render() {
+        this.renderer.setRenderTarget(this.renderTarget);
         this.renderer.render(this.scene, this.camera);
+        this.renderer.setRenderTarget(null);
+        this.renderer.render(this.scene, this.camera);
+
+        this.controls.update();
     }
 
     protected calculateIndex(optionLine: string[], locIndex: number) {
