@@ -9,9 +9,10 @@ export class ThreeHandler {
     protected div: HTMLElement;
     protected renderer: THREE.WebGLRenderer;
     protected camera: THREE.PerspectiveCamera;
-    protected controls: WorldInHandControls;
-    protected scene: THREE.Scene;
-    protected meshGroup: THREE.Group;
+    protected controls!: WorldInHandControls;
+    protected scene!: THREE.Scene;
+    protected meshGroup!: THREE.Group;
+    protected originalMeshes: Array<THREE.Mesh>;
     protected instancedMeshes: Array<THREE.InstancedMesh>;
     protected instancePositionMatrices: Array<Array<THREE.Matrix4>>;
     protected instanceSizes: Array<Array<{basicScaleFactor: number, variationFactor: number}>>;
@@ -42,6 +43,7 @@ export class ThreeHandler {
 
         this.setupScene();
 
+        this.originalMeshes = [];
         this.instancedMeshes = [];
         this.instanceSizes = [];
         this.instancePositionMatrices = [];
@@ -123,18 +125,22 @@ export class ThreeHandler {
     }
 
     protected async addMeshes(csv: Array<Array<string>>, xIndex: number, yIndex: number, locIndex: number, commentIndex: number, min: THREE.Vector2, max: THREE.Vector2): Promise<void> {
+        // Only do this the first time, avoid reloading same data on switch of csv
+        if (this.originalMeshes.length === 0) {
+            this.originalMeshes = await this.loadGLTF('TreesA_Mod.glb');
+        }
+
+        // Clear old instance data
+        this.instancedMeshes = new Array<THREE.InstancedMesh>(this.originalMeshes.length);
+        this.instanceSizes = new Array<Array<{basicScaleFactor: number; variationFactor: number}>>(this.originalMeshes.length);
+        this.instancePositionMatrices = new Array<Array<THREE.Matrix4>>(this.originalMeshes.length);
         this.meshGroup.clear();
-
-        const meshes = await this.loadGLTF('TreesA_Mod.glb');
-
-        this.instancedMeshes = new Array<THREE.InstancedMesh>(meshes.length);
 
         /*
          * Find how many instances of each Mesh are required and where they should be placed.
          */
-        const instanceCounter = new Array<number>(meshes.length);
-        const positions = new Array<Array<THREE.Vector2>>(meshes.length);
-        const sizes = new Array<Array<number>>(meshes.length);
+        const instanceCounter = new Array<number>(this.originalMeshes.length);
+        const positions = new Array<Array<THREE.Vector2>>(this.originalMeshes.length);
         for (let i = 0; i < csv.length - 1; ++i) {
             // First line of csv contains column names
             const csvIndex = i + 1;
@@ -152,16 +158,13 @@ export class ThreeHandler {
                 basicScaleFactor: 1,
                 variationFactor: Number(csv[csvIndex][commentIndex])
             });
-
-            if (!sizes[meshIndex]) sizes[meshIndex] = [];
-            sizes[meshIndex].push(Number(csv[csvIndex][commentIndex]));
         }
 
         /*
          * Create an InstancedMesh from each Mesh loaded from the GLTF, as well as position and scale their instances.
          */
-        for (let meshId = 0; meshId < meshes.length; ++meshId) {
-            const originalMesh = meshes[meshId];
+        for (let meshId = 0; meshId < this.originalMeshes.length; ++meshId) {
+            const originalMesh = this.originalMeshes[meshId];
             const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, originalMesh.material, instanceCounter[meshId]);
             this.instancedMeshes[meshId] = instancedMesh;
             instancedMesh.receiveShadow = true;
@@ -257,8 +260,10 @@ export class ThreeHandler {
         const gltf = (await loader.loadAsync(path) as GLTF);
 
         const meshes = new Array<THREE.Mesh | THREE.SkinnedMesh>();
+        if (!gltf.parser.json.hasOwnProperty('meshes')) throw new Error("Cannot load provided GLTF: " + path);
         for (let i = 0; i < gltf.parser.json.meshes.length; ++i) {
-            meshes.push(await gltf.parser.loadMesh(i))
+            const loadedObject = await gltf.parser.loadMesh(i);
+            if (loadedObject instanceof THREE.Mesh) meshes.push(loadedObject);
         }
 
         return meshes;
