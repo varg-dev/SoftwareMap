@@ -1,4 +1,4 @@
-import { parse } from 'csv-parse/browser/esm/sync';
+import {parse} from 'csv-parse/browser/esm/sync';
 import {ThreeHandler} from "./ThreeHandler.ts";
 import GUI from "lil-gui";
 
@@ -13,17 +13,32 @@ fileUpload.addEventListener('change', async () => {
 
 const gui = new GUI();
 
-const parameters = {
+const basicParameters = {
     maxVariation: 0.2,
     basicSize: 0.1
-}
+};
 
-gui.add(parameters, 'maxVariation').min(0.1).max(1).onChange((value: number) => {
+const mappingParameters = {
+    positionX: '',
+    positionY: '',
+    size: '',
+    mesh: ''
+};
+
+gui.add(basicParameters, 'maxVariation').min(0.1).max(1).onChange((value: number) => {
     threeHandler.sceneHandler.setMaxVariation(value);
-})
+});
 
-gui.add(parameters, 'basicSize').min(0.01).max(1).onChange((value: number) => {
+gui.add(basicParameters, 'basicSize').min(0.01).max(1).onChange((value: number) => {
     threeHandler.sceneHandler.setBasicSize(value);
-})
+});
+
+const csvFolder = gui.addFolder('Name of CSV columns that govern...');
+
+for (const mappingParameter in mappingParameters) {
+    csvFolder.add(mappingParameters, mappingParameter).onFinishChange(async (value: string) => {
+        await threeHandler.sceneHandler.setMapping(mappingParameter, value);
+    });
+}
 
 const threeHandler = new ThreeHandler();

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import {ThreeHandler} from "./ThreeHandler.ts";
+import {Vector2} from "three";
 
 export class SceneHandler {
     protected threeHandler: ThreeHandler;
@@ -12,8 +13,12 @@ export class SceneHandler {
     protected instancePositionMatrices: Array<Array<THREE.Matrix4>>;
     protected instanceSizes: Array<Array<{basicScaleFactor: number, variationFactor: number}>>;
 
+    protected variableMapping: Record<string, {name: string, index: number}>;
+
     protected basicSize: number;
     protected maxVariation: number;
+
+    protected csv: Array<Array<string>>;
 
     constructor(threeHandler: ThreeHandler) {
         this.threeHandler = threeHandler;
@@ -24,6 +29,13 @@ export class SceneHandler {
         this.instancePositionMatrices = [];
         this.basicSize = 0.1;
         this.maxVariation = 0.5;
+
+        this.variableMapping = {
+            positionX: { name: 'x', index: -1 },
+            positionY: { name: 'y', index: -1 },
+            size: {name: 'Comments_normalized', index: -1},
+            mesh: {name: 'LoC_normalized', index: -1}
+        };
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xaaaacc);
@@ -54,20 +66,33 @@ export class SceneHandler {
         this.scene.add(this.meshGroup);
     }
 
-    public async createScene(csv: Array<Array<string>>): Promise<void> {
-        const xIndex = this.findIndex('x', csv);
-        const yIndex = this.findIndex('y', csv);
-        const locIndex = this.findIndex('LoC_normalized', csv);
-        const commentIndex = this.findIndex('Comments_normalized', csv);
+    public async createScene(csv?: Array<Array<string>>): Promise<void> {
+        if (csv) this.csv = csv;
 
-        let {min, max} = this.findExtrema(csv, xIndex, yIndex);
+        let invalidMappings = '';
 
-        await this.addMeshes(csv, xIndex, yIndex, locIndex, commentIndex, min, max);
+        for (let variableMappingKey in this.variableMapping) {
+            this.findIndex(variableMappingKey);
+            if (this.variableMapping[variableMappingKey].index === -1) invalidMappings += ('\t' + variableMappingKey + '\n');
+        }
+
+        if (invalidMappings.length !== 0) {
+            let messageString = 'The following columns don\'t exist in the currently loaded csv:\n' + invalidMappings + '\nThese columns exist:\n';
+
+            for (let i = 0; i < this.csv[0].length; ++i) messageString += ('\t' + this.csv[0][i] + '\n');
+
+            alert(messageString);
+            return;
+        }
+
+        let {min, max} = this.findExtremaInCsv();
+
+        await this.addMeshes(min, max);
 
         this.threeHandler.render();
     }
 
-    protected async addMeshes(csv: Array<Array<string>>, xIndex: number, yIndex: number, locIndex: number, commentIndex: number, min: THREE.Vector2, max: THREE.Vector2): Promise<void> {
+    protected async addMeshes(min: Vector2, max: Vector2): Promise<void> {
         // Only do this the first time, avoid reloading same data on switch of csv
         if (this.originalMeshes.length === 0) {
             this.originalMeshes = await this.loadGLTF('TreesA_Mod.glb');
@@ -84,22 +109,22 @@ export class SceneHandler {
          */
         const instanceCounter = new Array<number>(this.originalMeshes.length);
         const positions = new Array<Array<THREE.Vector2>>(this.originalMeshes.length);
-        for (let i = 0; i < csv.length - 1; ++i) {
+        for (let i = 0; i < this.csv.length - 1; ++i) {
             // First line of csv contains column names
             const csvIndex = i + 1;
 
-            const meshIndex = this.calculateIndex(csv[csvIndex], locIndex);
+            const meshIndex = this.calculateIndex(this.csv[csvIndex], this.variableMapping['mesh'].index);
 
             if (!instanceCounter[meshIndex]) instanceCounter[meshIndex] = 0;
             ++instanceCounter[meshIndex];
 
             if (!positions[meshIndex]) positions[meshIndex] = [];
-            positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(csv[csvIndex][xIndex]), Number(csv[csvIndex][yIndex])), min, max));
+            positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(this.csv[csvIndex][this.variableMapping['positionX'].index]), Number(this.csv[csvIndex][this.variableMapping['positionY'].index])), min, max));
 
             if (!this.instanceSizes[meshIndex]) this.instanceSizes[meshIndex] = [];
             this.instanceSizes[meshIndex].push({
                 basicScaleFactor: 1,
-                variationFactor: Number(csv[csvIndex][commentIndex])
+                variationFactor: Number(this.csv[csvIndex][this.variableMapping['size'].index])
             });
         }
 
@@ -146,10 +171,16 @@ export class SceneHandler {
         this.updateInstanceMatrices();
     }
 
+    public async setMapping(option: string, columnName: string) {
+        this.variableMapping[option].name = columnName;
+        this.findIndex(option);
+        await this.createScene();
+    }
+
     // Helpers
 
-    protected calculateIndex(optionLine: string[], locIndex: number) {
-        return Math.floor(Number(optionLine[locIndex]) * (this.instancedMeshes.length - 1));
+    protected calculateIndex(optionLine: string[], meshChoiceIndex: number) {
+        return Math.floor(Number(optionLine[meshChoiceIndex]) * (this.instancedMeshes.length - 1));
     }
 
     protected updateInstanceMatrices() {
@@ -173,13 +204,13 @@ export class SceneHandler {
         this.instancedMeshes[meshId].setMatrixAt(instanceId, instanceMatrix);
     }
 
-    protected findExtrema(csv: Array<Array<string>>, xIndex: number, yIndex: number) {
+    protected findExtremaInCsv() {
         let min = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
         let max = new THREE.Vector2(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
 
-        for (let i = 1; i < csv.length; ++i) {
-            const x = Number(csv[i][xIndex]);
-            const y = Number(csv[i][yIndex]);
+        for (let i = 1; i < this.csv.length; ++i) {
+            const x = Number(this.csv[i][this.variableMapping['positionX'].index]);
+            const y = Number(this.csv[i][this.variableMapping['positionY'].index]);
 
             if (x < min.x) min.x = x;
             if (x > max.x) max.x = x;
@@ -207,7 +238,7 @@ export class SceneHandler {
         return coords.clone().sub(min).divide(max.clone().sub(min)).multiplyScalar(2).subScalar(1);
     }
 
-    protected findIndex(attribute: string, csv: Array<Array<string>>) {
-        return csv[0].findIndex((value: string, index: number) => { if (value === attribute) return index; });
+    protected findIndex(attribute: string) {
+        this.variableMapping[attribute].index = this.csv[0].findIndex((value: string, index: number) => { if (value === this.variableMapping[attribute].name) return index; });
     }
 }
