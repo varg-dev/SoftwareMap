@@ -8,7 +8,7 @@ fileUpload.addEventListener('change', async () => {
     const file = fileUpload.files.item(0);
     if (!file) return;
     csv = await parse(await file.text());
-    await threeHandler.createScene(csv);
+    await threeHandler.sceneHandler.createScene(csv);
 });
 
 const gui = new GUI();
@@ -19,11 +19,11 @@ const parameters = {
 }
 
 gui.add(parameters, 'maxVariation').min(0.1).max(1).onChange((value: number) => {
-    threeHandler.setMaxVariation(value);
+    threeHandler.sceneHandler.setMaxVariation(value);
 })
 
 gui.add(parameters, 'basicSize').min(0.01).max(1).onChange((value: number) => {
-    threeHandler.setBasicSize(value);
+    threeHandler.sceneHandler.setBasicSize(value);
 })
 
 const threeHandler = new ThreeHandler();
