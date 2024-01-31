@@ -32,7 +32,7 @@ export class ThreeHandler {
         this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
 
-        this.renderTarget = new THREE.WebGLRenderTarget(this.div.clientWidth * this.renderer.getPixelRatio(), this.div.clientHeight * this.renderer.getPixelRatio());
+        this.renderTarget = new THREE.WebGLRenderTarget(this.renderer.getSize(new THREE.Vector2).x, this.renderer.getSize(new THREE.Vector2).y);
         this.renderTarget.depthTexture = new THREE.DepthTexture(this.renderTarget.width, this.renderTarget.height, FloatType);
         this.renderTarget.depthTexture.format = THREE.DepthFormat;
 
