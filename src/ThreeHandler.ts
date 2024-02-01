@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 //import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WorldInHandControls } from "./worldInHandControls.ts";
-import {FloatType} from "three";
 import {SceneHandler} from "./SceneHandler.ts";
 
 export class ThreeHandler {
@@ -13,7 +12,6 @@ export class ThreeHandler {
     readonly sceneHandler: SceneHandler
 
     protected controls!: WorldInHandControls;
-    protected renderTarget: THREE.WebGLRenderTarget;
 
     constructor() {
         this.updateRequested = false;
@@ -25,10 +23,6 @@ export class ThreeHandler {
         this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
 
-        this.renderTarget = new THREE.WebGLRenderTarget(this.renderer.getSize(new THREE.Vector2).x, this.renderer.getSize(new THREE.Vector2).y);
-        this.renderTarget.depthTexture = new THREE.DepthTexture(this.renderTarget.width, this.renderTarget.height, FloatType);
-        this.renderTarget.depthTexture.format = THREE.DepthFormat;
-
         this.div.appendChild(this.renderer.domElement);
 
         this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.01, 1000);
@@ -36,7 +30,7 @@ export class ThreeHandler {
 
         this.sceneHandler = new SceneHandler(this);
 
-        this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderTarget, this.renderer, this.sceneHandler.scene);
+        this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneHandler.scene);
 
         this.startRendering();
     }
@@ -60,8 +54,10 @@ export class ThreeHandler {
             this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
             this.camera.aspect = this.div.clientWidth / this.div.clientHeight;
             this.renderer.setPixelRatio(window.devicePixelRatio);
-            this.renderTarget.setSize(this.div.clientWidth * this.renderer.getPixelRatio(), this.div.clientHeight * this.renderer.getPixelRatio());
             this.camera.updateProjectionMatrix();
+
+            //@ts-ignore
+            this.sceneHandler.scene.dispatchEvent({type: 'resize'});
 
             this.render();
         })
@@ -70,7 +66,7 @@ export class ThreeHandler {
     // Helpers
 
     render() {
-        this.renderer.setRenderTarget(this.renderTarget);
+        this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
         this.renderer.render(this.sceneHandler.scene, this.camera);
         this.renderer.setRenderTarget(null);
         this.renderer.render(this.sceneHandler.scene, this.camera);
