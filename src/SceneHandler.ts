@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import {ThreeHandler} from "./ThreeHandler.ts";
-import {Vector2} from "three";
 
 export class SceneHandler {
     protected threeHandler: ThreeHandler;
@@ -19,11 +18,15 @@ export class SceneHandler {
     protected maxVariation: number;
 
     protected csv: Array<Array<string>>;
+    protected csvMin: THREE.Vector2;
+    protected csvMax: THREE.Vector2;
 
     constructor(threeHandler: ThreeHandler) {
         this.threeHandler = threeHandler;
 
         this.csv = [];
+        this.csvMin = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+        this.csvMax = new THREE.Vector2(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
         this.originalMeshes = [];
         this.instancedMeshes = [];
         this.instanceSizes = [];
@@ -90,18 +93,14 @@ export class SceneHandler {
             return;
         }
 
-        let {min, max} = this.findExtremaInCsv();
+        this.findExtremaInCsv();
 
-        await this.addMeshes(min, max);
-
-        this.threeHandler.render();
+        await this.addMeshes();
     }
 
-    protected async addMeshes(min: Vector2, max: Vector2): Promise<void> {
+    protected async addMeshes(): Promise<void> {
         // Only do this the first time, avoid reloading same data on switch of csv
-        if (this.originalMeshes.length === 0) {
-            this.originalMeshes = await this.loadGLTF('TreesA_Mod.glb');
-        }
+        if (this.originalMeshes.length === 0) await this.setGLTF('TreesA_Mod.glb');
 
         // Clear old instance data
         this.instancedMeshes = new Array<THREE.InstancedMesh>(this.originalMeshes.length);
@@ -124,7 +123,7 @@ export class SceneHandler {
             ++instanceCounter[meshIndex];
 
             if (!positions[meshIndex]) positions[meshIndex] = [];
-            positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(this.csv[csvIndex][this.variableMapping['positionX'].index]), Number(this.csv[csvIndex][this.variableMapping['positionY'].index])), min, max));
+            positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(this.csv[csvIndex][this.variableMapping['positionX'].index]), Number(this.csv[csvIndex][this.variableMapping['positionY'].index]))));
 
             if (!this.instanceSizes[meshIndex]) this.instanceSizes[meshIndex] = [];
             this.instanceSizes[meshIndex].push({
@@ -140,9 +139,9 @@ export class SceneHandler {
             const originalMesh = this.originalMeshes[meshId];
             const originalMaterial = originalMesh.material as THREE.MeshStandardMaterial;
 
-            const cheapMaterial = new THREE.MeshLambertMaterial({map: originalMaterial.map, color: originalMaterial.color})
+            //const cheapMaterial = new THREE.MeshLambertMaterial({map: originalMaterial.map, color: originalMaterial.color})
 
-            const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, cheapMaterial, instanceCounter[meshId]);
+            const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, originalMaterial, instanceCounter[meshId]);
             this.instancedMeshes[meshId] = instancedMesh;
             instancedMesh.receiveShadow = false;
             instancedMesh.castShadow = true;
@@ -166,6 +165,8 @@ export class SceneHandler {
             instancedMesh.instanceMatrix.needsUpdate = true;
             this.meshGroup.add(instancedMesh);
         }
+
+        this.threeHandler.render();
     }
 
     // Option setters
@@ -184,6 +185,11 @@ export class SceneHandler {
         this.variableMapping[option].name = columnName;
         this.findIndex(option);
         await this.createScene();
+    }
+
+    public async setGLTF(name: string) {
+        this.originalMeshes = await this.loadGLTF(name);
+        await this.addMeshes();
     }
 
     // Helpers
@@ -214,19 +220,18 @@ export class SceneHandler {
     }
 
     protected findExtremaInCsv() {
-        let min = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
-        let max = new THREE.Vector2(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+        this.csvMin = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+        this.csvMax = new THREE.Vector2(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
 
         for (let i = 1; i < this.csv.length; ++i) {
             const x = Number(this.csv[i][this.variableMapping['positionX'].index]);
             const y = Number(this.csv[i][this.variableMapping['positionY'].index]);
 
-            if (x < min.x) min.x = x;
-            if (x > max.x) max.x = x;
-            if (y < min.y) min.y = y;
-            if (y > max.y) max.y = y;
+            if (x < this.csvMin.x) this.csvMin.x = x;
+            if (x > this.csvMax.x) this.csvMax.x = x;
+            if (y < this.csvMin.y) this.csvMin.y = y;
+            if (y > this.csvMax.y) this.csvMax.y = y;
         }
-        return {min, max};
     }
 
     protected async loadGLTF(path: string): Promise<Array<THREE.Mesh | THREE.SkinnedMesh>> {
@@ -243,8 +248,8 @@ export class SceneHandler {
         return meshes;
     }
 
-    protected normalizeCoordinatesToNDC(coords: THREE.Vector2, min: THREE.Vector2, max: THREE.Vector2) {
-        return coords.clone().sub(min).divide(max.clone().sub(min)).multiplyScalar(2).subScalar(1);
+    protected normalizeCoordinatesToNDC(coords: THREE.Vector2) {
+        return coords.clone().sub(this.csvMin).divide(this.csvMax.clone().sub(this.csvMin)).multiplyScalar(2).subScalar(1);
     }
 
     protected findIndex(attribute: string) {
