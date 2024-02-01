@@ -239,10 +239,11 @@ export class SceneHandler {
         const gltf = (await loader.loadAsync(path) as GLTF);
 
         const meshes = new Array<THREE.Mesh | THREE.SkinnedMesh>();
-        if (!gltf.parser.json.hasOwnProperty('meshes')) throw new Error("Cannot load provided GLTF: " + path);
-        for (let i = 0; i < gltf.parser.json.meshes.length; ++i) {
-            const loadedObject = await gltf.parser.loadMesh(i);
-            if (loadedObject instanceof THREE.Mesh) meshes.push(loadedObject);
+        for (let i = 0; i < gltf.scene.children.length; ++i) {
+            const loadedObject = gltf.scene.children[i].children[0];
+
+            // @ts-ignore
+            if (loadedObject && loadedObject.type === 'Mesh') meshes.push(loadedObject);
         }
 
         return meshes;
