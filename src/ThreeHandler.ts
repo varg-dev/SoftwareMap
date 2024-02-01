@@ -39,16 +39,15 @@ export class ThreeHandler {
         this.render();
 
         const requestUpdate = () => {
-            this.updateRequested = true;
-            requestAnimationFrame(requestUpdate);
-        }
-        requestAnimationFrame(requestUpdate);
+            if (this.updateRequested) return;
 
-        this.controls.addEventListener('change', () => {
-            if (!this.updateRequested) return;
-            this.render();
-            this.updateRequested = false;
-        });
+            this.updateRequested = true;
+
+            // lambda to preserve 'this'
+            requestAnimationFrame(() => {this.render()});
+        }
+
+        this.controls.addEventListener('change', requestUpdate);
 
         window.addEventListener('resize', () => {
             this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
@@ -59,13 +58,15 @@ export class ThreeHandler {
             //@ts-ignore
             this.sceneHandler.scene.dispatchEvent({type: 'resize'});
 
-            this.render();
+            requestUpdate();
         })
     }
 
     // Helpers
 
-    render() {
+    public render() {
+        this.updateRequested = false;
+
         this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
         this.renderer.render(this.sceneHandler.scene, this.camera);
         this.renderer.setRenderTarget(null);
@@ -73,6 +74,4 @@ export class ThreeHandler {
 
         this.controls.update();
     }
-
-
 }
