@@ -23,6 +23,7 @@ export class SceneHandler {
     constructor(threeHandler: ThreeHandler) {
         this.threeHandler = threeHandler;
 
+        this.csv = [];
         this.originalMeshes = [];
         this.instancedMeshes = [];
         this.instanceSizes = [];
@@ -68,6 +69,10 @@ export class SceneHandler {
 
     public async createScene(csv?: Array<Array<string>>): Promise<void> {
         if (csv) this.csv = csv;
+        if (this.csv.length === 0) {
+            console.error('Cannot create scene from empty csv!');
+            return;
+        }
 
         let invalidMappings = '';
 
