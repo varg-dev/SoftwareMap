@@ -21,7 +21,7 @@ export class ThreeHandler {
 
         this.renderer = new THREE.WebGLRenderer({antialias: true});
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
 

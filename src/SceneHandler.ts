@@ -138,9 +138,13 @@ export class SceneHandler {
          */
         for (let meshId = 0; meshId < this.originalMeshes.length; ++meshId) {
             const originalMesh = this.originalMeshes[meshId];
-            const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, originalMesh.material, instanceCounter[meshId]);
+            const originalMaterial = originalMesh.material as THREE.MeshStandardMaterial;
+
+            const cheapMaterial = new THREE.MeshLambertMaterial({map: originalMaterial.map, color: originalMaterial.color})
+
+            const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, cheapMaterial, instanceCounter[meshId]);
             this.instancedMeshes[meshId] = instancedMesh;
-            instancedMesh.receiveShadow = true;
+            instancedMesh.receiveShadow = false;
             instancedMesh.castShadow = true;
 
             const largestExtent = new THREE.Box3().setFromObject(originalMesh, true).getBoundingSphere(new THREE.Sphere).radius * 2;

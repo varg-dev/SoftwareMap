@@ -19,10 +19,10 @@ const basicParameters = {
 };
 
 const mappingParameters = {
-    positionX: '',
-    positionY: '',
-    size: '',
-    mesh: ''
+    positionX: 'x',
+    positionY: 'y',
+    size: 'Comments_normalized',
+    mesh: 'LoC_normalized'
 };
 
 gui.add(basicParameters, 'maxVariation').min(0.1).max(1).onChange((value: number) => {
