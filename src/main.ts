@@ -1,6 +1,7 @@
 import {parse} from 'csv-parse/browser/esm/sync';
 import {ThreeHandler} from './ThreeHandler.ts';
 import GUI from 'lil-gui';
+import {GlyphLoader} from './GlyphLoader.ts';
 
 let csv: Array<Array<string>>;
 const fileUpload = document.getElementById('fileUpload') as HTMLInputElement;
@@ -54,7 +55,8 @@ for (const glyphName in glyphNamesRecord) {
 }
 
 gui.add(basicParameters, 'glyphs', glyphNames).onChange(async (value: string) => {
-	await threeHandler.sceneHandler.setGLTF(value + '.glb');
+	await glyphLoader.setGlyphAtlas(value + '.json');
 });
 
 const threeHandler = new ThreeHandler();
+const glyphLoader = new GlyphLoader(threeHandler.sceneHandler);

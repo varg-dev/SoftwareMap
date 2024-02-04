@@ -1,14 +1,12 @@
 import * as THREE from 'three';
-import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import {ThreeHandler} from './ThreeHandler.ts';
-import {Object3D} from 'three';
 
 export class SceneHandler {
 	protected threeHandler: ThreeHandler;
 
 	readonly scene: THREE.Scene;
 	protected meshGroup: THREE.Group;
-	protected originalMeshes: Array<THREE.Mesh>;
+	protected originalMeshes: Array<THREE.Object3D>;
 	protected instancedMeshes: Array<THREE.InstancedMesh>;
 	protected instancePositionMatrices: Array<Array<THREE.Matrix4>>;
 	protected instanceSizes: Array<Array<{basicScaleFactor: number, variationFactor: number}>>;
@@ -100,9 +98,6 @@ export class SceneHandler {
 	}
 
 	protected async addMeshes(): Promise<void> {
-		// Only do this the first time, avoid reloading same data on switch of csv
-		if (this.originalMeshes.length === 0) await this.setGLTF('TreesA_Mod.glb');
-
 		// Clear old instance data
 		this.instancedMeshes = new Array<THREE.InstancedMesh>(this.originalMeshes.length);
 		this.instanceSizes = new Array<Array<{basicScaleFactor: number; variationFactor: number}>>(this.originalMeshes.length);
@@ -188,8 +183,8 @@ export class SceneHandler {
 		await this.createScene();
 	}
 
-	public async setGLTF(name: string) {
-		this.originalMeshes = await this.loadGLTF(name);
+	public async setOriginalMeshes(meshes: Array<THREE.Object3D>) {
+		this.originalMeshes = meshes;
 		await this.addMeshes();
 	}
 
@@ -233,17 +228,6 @@ export class SceneHandler {
 			if (y < this.csvMin.y) this.csvMin.y = y;
 			if (y > this.csvMax.y) this.csvMax.y = y;
 		}
-	}
-
-	protected async loadGLTF(path: string): Promise<Array<THREE.Mesh | THREE.SkinnedMesh>> {
-		const loader = new GLTFLoader();
-		const gltf = (await loader.loadAsync(path) as GLTF);
-
-		const meshes = new Array<THREE.Mesh | THREE.SkinnedMesh>();
-
-		gltf.scene.traverse((object: Object3D) => { if (object.type === 'Mesh' || object.type === 'SkinnedMesh') meshes.push(object as THREE.Mesh || THREE.SkinnedMesh); });
-
-		return meshes;
 	}
 
 	protected normalizeCoordinatesToNDC(coords: THREE.Vector2) {
