@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import {ThreeHandler} from './ThreeHandler.ts';
+import {Object3D} from 'three';
 
 export class SceneHandler {
 	protected threeHandler: ThreeHandler;
@@ -239,12 +240,8 @@ export class SceneHandler {
 		const gltf = (await loader.loadAsync(path) as GLTF);
 
 		const meshes = new Array<THREE.Mesh | THREE.SkinnedMesh>();
-		for (let i = 0; i < gltf.scene.children.length; ++i) {
-			const loadedObject = gltf.scene.children[i].children[0];
 
-			// @ts-expect-error loadedObject.type checks for type, but no visibly to ts.
-			if (loadedObject && loadedObject.type === 'Mesh') meshes.push(loadedObject);
-		}
+		gltf.scene.traverse((object: Object3D) => { if (object.type === 'Mesh' || object.type === 'SkinnedMesh') meshes.push(object as THREE.Mesh || THREE.SkinnedMesh); });
 
 		return meshes;
 	}
