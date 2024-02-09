@@ -45,7 +45,7 @@ for (const mappingParameter in mappingParameters) {
 	});
 }
 
-const glyphNamesRecord = import.meta.glob('/public/*.glb');
+const glyphNamesRecord = import.meta.glob('/public/*.json');
 const glyphNames: string[] = [];
 
 for (const glyphName in glyphNamesRecord) {

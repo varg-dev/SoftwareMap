@@ -24,6 +24,16 @@ export class GlyphLoader {
 	public async setGlyphAtlas(path: string): Promise<void> {
 		const json = (await (await fetch(path)).json()) as GlyphJson;
 
+		const gltfRecord = import.meta.glob('/public/*.glb');
+		const gltfNames = new Array<string>;
+		for (const name in gltfRecord) {
+			gltfNames.push(name.substring(name.lastIndexOf('/') + 1));
+		}
+		if (gltfNames.indexOf(json.modelFile) === -1) {
+			console.warn('The gltf specified in the chosen json does not exist!');
+			return;
+		}
+
 		const loader = new GLTFLoader();
 		const gltf = await loader.loadAsync(json.modelFile);
 
@@ -31,7 +41,10 @@ export class GlyphLoader {
 
 		gltf.scene.traverse((object: THREE.Object3D) => {
 			let nameExists = false;
-			for (let i = 0; i < json.types.length; ++i) nameExists = nameExists || object.name.startsWith(json.types[i].name);
+			for (let i = 0; i < json.types.length; ++i) {
+				nameExists = nameExists || object.name.startsWith(json.types[i].name);
+				if (nameExists) break;
+			}
 
 			if (nameExists) {
 				nameExists = false;
@@ -42,11 +55,13 @@ export class GlyphLoader {
 						nameExists = true;
 						break;
 					}
-						
-					for (const variant of type.variants) {
-						if (variant.name === object.name) {
-							nameExists = true;
-							break outerLoop;
+
+					if (type.variants) {
+						for (const variant of type.variants) {
+							if (variant.name === object.name) {
+								nameExists = true;
+								break outerLoop;
+							}
 						}
 					}
 				}
@@ -54,6 +69,8 @@ export class GlyphLoader {
 
 			if (nameExists) glyphs.push(object);
 		});
+
+		debugger;
 
 		await this._sceneHandler.setOriginalMeshes(glyphs);
 	}

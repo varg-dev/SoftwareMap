@@ -1,0 +1,2 @@
+- ThreeJS GLTF Loader does not support names with dots or columns - [Relevant forum post](https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726)
+- 
