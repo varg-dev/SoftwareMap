@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SceneHandler} from './SceneHandler.ts';
 
 type GlyphType = {
@@ -29,11 +29,17 @@ export class GlyphLoader {
 		for (const name in gltfRecord) {
 			gltfNames.push(name.substring(name.lastIndexOf('/') + 1));
 		}
-		if (gltfNames.indexOf(json.modelFile) === -1) {
-			console.warn('The gltf specified in the chosen json does not exist!');
+		if (!gltfNames.includes(json.modelFile)) {
+			console.error('The gltf specified in the chosen json does not exist!');
 			return;
 		}
 
+		this.checkAndReplaceInvalidCharacters(json);
+
+		await this._sceneHandler.setOriginalMeshes(await this.loadGLTF(json));
+	}
+
+	protected async loadGLTF(json: GlyphJson): Promise<Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>> {
 		const loader = new GLTFLoader();
 		const gltf = await loader.loadAsync(json.modelFile);
 
@@ -70,19 +76,36 @@ export class GlyphLoader {
 			if (nameExists) glyphs.push(object);
 		});
 
-		debugger;
-
-		await this._sceneHandler.setOriginalMeshes(glyphs);
+		return glyphs;
 	}
+	
+	protected checkAndReplaceInvalidCharacters(json: GlyphJson): void {
+		function includesInvalid(name: string): boolean {
+			// eslint-disable-next-line no-useless-escape
+			return (/[\[\].:\\\s]/g).test(name);
+		}
 
-	protected async loadGLTF(path: string): Promise<Array<THREE.Mesh | THREE.SkinnedMesh>> {
-		const loader = new GLTFLoader();
-		const gltf = (await loader.loadAsync(path) as GLTF);
+		let includesInvalidChars = false;
 
-		const meshes = new Array<THREE.Mesh | THREE.SkinnedMesh>();
+		for (let i = 0; i < json.types.length; ++i) {
+			if (includesInvalid(json.types[i].name)) {
+				includesInvalidChars = true;
+				// Equivalent to https://github.com/mrdoob/three.js/blob/c2b4d2fa5fb1464cf4caa81bc831b35572ce7b9d/src/animation/PropertyBinding.js#L142
+				// eslint-disable-next-line no-useless-escape
+				json.types[i].name = json.types[i].name.replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+			}
 
-		gltf.scene.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh' || object.type === 'SkinnedMesh') meshes.push(object as THREE.Mesh || THREE.SkinnedMesh); });
+			for (let j = 0; j < json.types[i].variants.length; ++j) {
+				if (includesInvalid(json.types[i].variants[j].name as string)) {
+					includesInvalidChars = true;
+					// eslint-disable-next-line no-useless-escape
+					json.types[i].variants[j].name = (json.types[i].variants[j].name as string).replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+				}
+			}
+		}
 
-		return meshes;
+		if (includesInvalidChars) {
+			console.warn('The specified json contains glyph names containing \'.\', \':\', \'[\', \']\', \'\\\' or whitespace. This is not supported by three.js.');
+		}
 	}
 }
