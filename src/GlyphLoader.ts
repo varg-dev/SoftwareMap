@@ -2,17 +2,23 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SceneHandler} from './SceneHandler.ts';
 
-type GlyphType = {
+export type Glyph = {
 	baseModel: string,
 	name: string,
 	variants: Array<{name: string} | Record<string, number | string>>
 }
 
-type GlyphJson = {
+export type GlyphJson = {
 	attributes: Array<string>,
 	modelFile: string,
-	types: Array<GlyphType>
+	types: Array<Glyph>
 };
+
+export type GlyphAtlas = {
+	json: GlyphJson,
+	glyphs: Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>,
+	largestExtent: number
+}
 
 export class GlyphLoader {
 	protected _sceneHandler: SceneHandler;
@@ -36,10 +42,12 @@ export class GlyphLoader {
 
 		this.checkAndReplaceInvalidCharacters(json);
 
-		await this._sceneHandler.setOriginalMeshes(await this.loadGLTF(json));
+		const gltf = await this.loadGLTF(json);
+
+		await this._sceneHandler.setGlyphAtlas({ json: json, glyphs: gltf.glyphs, largestExtent: gltf.largestExtent });
 	}
 
-	protected async loadGLTF(json: GlyphJson): Promise<Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>> {
+	protected async loadGLTF(json: GlyphJson): Promise<{ glyphs: Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>, largestExtent: number }> {
 		const loader = new GLTFLoader();
 		const gltf = await loader.loadAsync(json.modelFile);
 
@@ -76,7 +84,12 @@ export class GlyphLoader {
 			if (nameExists) glyphs.push(object);
 		});
 
-		return glyphs;
+		let largestExtent = Number.NEGATIVE_INFINITY;
+		for (const glyph of glyphs) {
+			largestExtent = Math.max(new THREE.Box3().setFromObject(glyph, true).getBoundingSphere(new THREE.Sphere).radius * 2, largestExtent);
+		}
+
+		return { glyphs, largestExtent };
 	}
 	
 	protected checkAndReplaceInvalidCharacters(json: GlyphJson): void {
@@ -95,17 +108,19 @@ export class GlyphLoader {
 				json.types[i].name = json.types[i].name.replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
 			}
 
-			for (let j = 0; j < json.types[i].variants.length; ++j) {
-				if (includesInvalid(json.types[i].variants[j].name as string)) {
-					includesInvalidChars = true;
-					// eslint-disable-next-line no-useless-escape
-					json.types[i].variants[j].name = (json.types[i].variants[j].name as string).replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+			if (json.types[i].variants) {
+				for (let j = 0; j < json.types[i].variants.length; ++j) {
+					if (includesInvalid(json.types[i].variants[j].name as string)) {
+						includesInvalidChars = true;
+						// eslint-disable-next-line no-useless-escape
+						json.types[i].variants[j].name = (json.types[i].variants[j].name as string).replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+					}
 				}
 			}
 		}
 
 		if (includesInvalidChars) {
-			console.warn('The specified json contains glyph names containing \'.\', \':\', \'[\', \']\', \'\\\' or whitespace. This is not supported by three.js.');
+			console.warn('The specified json contains glyph names containing \'.\', \':\', \'[\', \']\', \'\\\' or whitespace. This is not supported by three.js. All whitespace is replaced with \'_\' and all other invalid characters are removed. If this leads to issues, consider using \'-\' instead of the invalid characters. For more info visit https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726.');
 		}
 	}
 }

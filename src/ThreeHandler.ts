@@ -55,7 +55,7 @@ export class ThreeHandler {
 			this.renderer.setPixelRatio(window.devicePixelRatio);
 			this.camera.updateProjectionMatrix();
 
-			//@ts-expect-error ThreeJS type definitions seem to be broken, this works.
+			//@ts-expect-error three.js type definitions seem to be broken, this works.
 			this.sceneHandler.scene.dispatchEvent({type: 'resize'});
 
 			requestUpdate();
