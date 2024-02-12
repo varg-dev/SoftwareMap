@@ -14,8 +14,9 @@ export class GuiHandler {
 	};
 
 	protected originalMappingParameters: Record<string, string> = {
-		positionX: 'x',
-		positionY: 'y',
+		positionX: '',
+		positionY: '',
+		glyphType: ''
 	};
 
 	protected mappingParameters: Record<string, string> = {
@@ -48,7 +49,7 @@ export class GuiHandler {
 		}
 		for (const mappingParameter in this.mappingParameters) {
 			this.csvFolder.add(this.mappingParameters, mappingParameter).onFinishChange(async (value: string) => {
-				await this.threeHandler.sceneHandler.setMapping(mappingParameter, value);
+				await this.threeHandler.sceneHandler.setMapping(mappingParameter, value, true);
 			});
 		}
 
@@ -72,8 +73,10 @@ export class GuiHandler {
 
 			this.mappingParameters[attribute] = '';
 			this.csvFolder.add(this.mappingParameters, attribute).onFinishChange(async (value: string) => {
-				await this.threeHandler.sceneHandler.setMapping(attribute, value);
+				await this.threeHandler.sceneHandler.setMapping(attribute, value, true);
 			});
+
+			this.threeHandler.sceneHandler.setMapping(attribute, '');
 		}
 	}
 }

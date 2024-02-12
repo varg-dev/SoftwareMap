@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphAtlas, GlyphJson} from './GlyphLoader.ts';
 import {GuiHandler} from './GuiHandler.ts';
+import {Color} from 'three';
 
 type MeshData = {
 	meshes: Array<{
 		mesh: THREE.InstancedMesh,
-		colors: Array<THREE.Color>
-	}>,
-	instancePositionMatrices: Array<THREE.Matrix4>
+		colors: Array<THREE.Color>,
+		positionMatrices: Array<THREE.Matrix4>
+	}>
 };
 
 export class SceneHandler {
@@ -31,6 +32,7 @@ export class SceneHandler {
 	protected csv: Array<Array<string>>;
 	protected csvMin: THREE.Vector2;
 	protected csvMax: THREE.Vector2;
+	protected distinctValues: Array<number>;
 
 	constructor(threeHandler: ThreeHandler) {
 		this.threeHandler = threeHandler;
@@ -38,6 +40,7 @@ export class SceneHandler {
 		this.csv = [];
 		this.csvMin = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
 		this.csvMax = new THREE.Vector2(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+		this.distinctValues = [];
 
 		this.originalObjects = [];
 		this.instancedMeshes = [];
@@ -46,8 +49,9 @@ export class SceneHandler {
 		this.basicSize = 0.1;
 
 		this.variableMapping = {
-			positionX: { name: 'x', index: -1 },
-			positionY: { name: 'y', index: -1 }
+			positionX: { name: '', index: -1 },
+			positionY: { name: '', index: -1 },
+			glyphType: { name: '', index: -1 }
 		};
 
 		this.scene = new THREE.Scene();
@@ -85,16 +89,17 @@ export class SceneHandler {
 			console.error('Cannot create scene from empty csv!');
 			return;
 		}
+		if (csv) this.countDistinctValuesInCsv();
 
 		let invalidMappings = '';
 
 		for (const variableMappingKey in this.variableMapping) {
 			this.findIndex(variableMappingKey);
-			if (this.variableMapping[variableMappingKey].index === -1) invalidMappings += ('\t' + variableMappingKey + '\n');
+			if (this.variableMapping[variableMappingKey].index === -1) invalidMappings += ('\t' + variableMappingKey + ' -> ' + this.variableMapping[variableMappingKey].name + '\n');
 		}
 
 		if (invalidMappings.length !== 0) {
-			let messageString = 'The following columns don\'t exist in the currently loaded csv:\n' + invalidMappings + '\nThese columns exist:\n';
+			let messageString = 'The following mappings don\'t exist in the currently loaded csv:\n' + invalidMappings + '\nThese columns exist:\n';
 
 			for (let i = 0; i < this.csv[0].length; ++i) messageString += ('\t' + this.csv[0][i] + '\n');
 
@@ -102,7 +107,7 @@ export class SceneHandler {
 			return;
 		}
 
-		this.findExtremaInCsv();
+		if (csv) this.findExtremaInCsv();
 
 		await this.addMeshes();
 	}
@@ -122,53 +127,62 @@ export class SceneHandler {
 			const csvIndex = i + 1;
 
 			const meshIndex = this.calculateMeshIndex(this.csv[csvIndex]);
+			if (meshIndex === -1) {
+				console.warn('Select a mapping for glyphType!');
+				return;
+			}
 
-			if (!instanceCounter[meshIndex]) instanceCounter[meshIndex] = 0;
+			if (instanceCounter[meshIndex] === undefined) instanceCounter[meshIndex] = 0;
 			++instanceCounter[meshIndex];
 
-			if (!positions[meshIndex]) positions[meshIndex] = [];
-			positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(this.csv[csvIndex][this.variableMapping['positionX'].index]), Number(this.csv[csvIndex][this.variableMapping['positionY'].index]))));
+			const xIndex = this.variableMapping['positionX'].index;
+			const yIndex = this.variableMapping['positionY'].index;
 
-			if (!this.instanceSizes[meshIndex]) this.instanceSizes[meshIndex] = [];
-			this.instanceSizes[meshIndex].push({
-				basicScaleFactor: 1,
-				variationFactor: Number(this.csv[csvIndex][this.variableMapping['size'].index])
-			});
+			if (xIndex === -1 || yIndex === -1) {
+				console.warn('Select a mapping for positionX and positionY!');
+				return;
+			}
+
+			if (positions[meshIndex] === undefined) positions[meshIndex] = [];
+			positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(this.csv[csvIndex][xIndex]), Number(this.csv[csvIndex][yIndex]))));
 		}
 
 		/*
 		 * Create an InstancedMesh from each Mesh loaded from the GLTF, as well as position and scale their instances.
 		 */
 		for (let meshId = 0; meshId < this.originalObjects.length; ++meshId) {
-			const originalMesh = this.originalObjects[meshId];
-			const originalMaterial = originalMesh.material as THREE.MeshStandardMaterial;
+			const originalObject = this.originalObjects[meshId];
 
-			//const cheapMaterial = new THREE.MeshLambertMaterial({map: originalMaterial.map, color: originalMaterial.color})
+			if (instanceCounter[meshId] === 0 || instanceCounter[meshId] === undefined) continue;
+			for (let childMeshId = 0; childMeshId < originalObject.children.length; ++childMeshId) {
+				const mesh = originalObject.children[childMeshId] as THREE.Mesh;
 
-			const instancedMesh = new THREE.InstancedMesh(originalMesh.geometry, originalMaterial, instanceCounter[meshId]);
-			this.instancedMeshes[meshId] = instancedMesh;
-			instancedMesh.receiveShadow = false;
-			instancedMesh.castShadow = true;
+				const geometry = mesh.geometry;
+				const material = mesh.material;
 
-			const largestExtent = new THREE.Box3().setFromObject(originalMesh, true).getBoundingSphere(new THREE.Sphere).radius * 2;
-			const scaleFactor = (1 / largestExtent);
+				const instancedMesh = new THREE.InstancedMesh(geometry, material, instanceCounter[meshId]);
+				instancedMesh.receiveShadow = false;
+				instancedMesh.castShadow = true;
 
-			for (let instanceId = 0; instanceId < instanceCounter[meshId]; ++instanceId) {
-				// Order of transformation operations does not matter here
-				const instanceMatrix = new THREE.Matrix4();
-				instanceMatrix.setPosition(positions[meshId][instanceId].x, 0, positions[meshId][instanceId].y);
+				const positionMatrices = new Array<THREE.Matrix4>(instanceCounter[meshId]);
 
-				if (!this.instancePositionMatrices[meshId]) this.instancePositionMatrices[meshId] = [];
-				this.instancePositionMatrices[meshId][instanceId] = instanceMatrix;
+				for (let instanceId = 0; instanceId < instanceCounter[meshId]; ++instanceId) {
+					// Order of transformation operations does not matter here
+					const instanceMatrix = new THREE.Matrix4();
+					instanceMatrix.setPosition(positions[meshId][instanceId].x, 0, positions[meshId][instanceId].y);
 
-				this.instanceSizes[meshId][instanceId].basicScaleFactor = scaleFactor;
-				this.setInstanceMatrix(meshId, instanceId);
+					positionMatrices[instanceId] = instanceMatrix;
+				}
+
+				if (this.instancedMeshes[meshId] === undefined) {
+					this.instancedMeshes[meshId] = { meshes: [] };
+				}
+				this.instancedMeshes[meshId].meshes.push({ mesh: instancedMesh, colors: new Array<Color>(), positionMatrices: positionMatrices });
+				this.meshGroup.add(instancedMesh);
 			}
-
-			instancedMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-			instancedMesh.instanceMatrix.needsUpdate = true;
-			this.meshGroup.add(instancedMesh);
 		}
+
+		this.updateInstanceMatrices();
 
 		this.threeHandler.render();
 	}
@@ -180,11 +194,18 @@ export class SceneHandler {
 		this.updateInstanceMatrices();
 	}
 
-	public async setMapping(option: string, columnName: string) {
+	public async setMapping(option: string, columnName: string, createScene = false) {
 		if (this.variableMapping[option] !== undefined) this.variableMapping[option].name = columnName;
 		else this.variableMapping[option] = { name: columnName, index: -1 };
 		this.findIndex(option);
-		await this.createScene();
+
+		if (option === 'glyphType' && this.json && this.distinctValues[this.variableMapping[option].index] > this.json.types.length) {
+			alert(`The column mapped to glyphType has more distinct values (${this.distinctValues[this.variableMapping[option].index]}) than the chosen glyph atlas has glyph types (${this.json.types.length}). This will cause the glyph type to wrap around whenever the index is greater than the amount of glyphs.`);
+		} else if ((option === 'positionX' || option === 'positionY') && this.csv.length !== 0) {
+			this.findExtremaInCsv();
+		}
+
+		if (createScene) await this.createScene();
 	}
 
 	public async setGlyphAtlas(glyphAtlas: GlyphAtlas) {
@@ -195,58 +216,76 @@ export class SceneHandler {
 			this.guiHandler.addAttributes(this.json.attributes);
 		}
 
+		this.variableMapping = {};
 		this.originalObjects = glyphAtlas.glyphs;
 		this.sizeNormalizationFactor = 1 / glyphAtlas.largestExtent;
-		await this.addMeshes();
+		await this.createScene();
 	}
 
 	// Helpers
 
 	protected calculateMeshIndex(optionLine: string[]): number {
-		if (!this.json) return -1;
+		if (this.json === undefined) return -1;
 		
 		let largestIndex = -1;
-		const possibleGlyphs = new Array<string>();
+
+		const glyphTypeIndex = this.variableMapping['glyphType'].index;
+		if (glyphTypeIndex === -1) return -1;
+		const glyphTypeValue = Number(optionLine[glyphTypeIndex]);
 		
-		for (const glyphType of this.json.types) {
-			variantSearch:
-			for (let variantIndex = 0; variantIndex < glyphType.variants.length; ++variantIndex) {
-				for (const key in glyphType.variants[variantIndex]) {
-					if (key === 'name') continue;
-						
-					if (Number(optionLine[this.variableMapping[key].index]) < Number((glyphType.variants[variantIndex] as Record<string, string>)[key])) break variantSearch;
-					largestIndex = variantIndex;
+		const glyphType = this.json.types[glyphTypeValue % (this.json.types.length - 1)];
+		for (let variantIndex = 0; variantIndex < glyphType.variants.length; ++variantIndex) {
+			let variantIsValid = true;
+
+			for (const key in glyphType.variants[variantIndex]) {
+				if (key === 'name') continue;
+				if (this.variableMapping[key] === undefined) return -1;
+
+				if ((glyphType.variants[variantIndex] as Record<string, string>)[key] === undefined) continue;
+				if (Number(optionLine[this.variableMapping[key].index]) < Number((glyphType.variants[variantIndex] as Record<string, string>)[key])) {
+					variantIsValid = false;
+					break;
 				}
 			}
-				
-			possibleGlyphs.push(glyphType.variants[largestIndex].name as string);
-			largestIndex = -1;
+
+			if (variantIsValid) largestIndex = variantIndex;
 		}
 
-		for (let i = 0; i < this.originalObjects.length; ++i) if (this.originalObjects[i].name === possibleGlyphs[0]) return i;
+		if (largestIndex === -1) {
+			console.warn('No glyph could be found that satisfies the requirements for the following line:\n' + optionLine);
+			return -1;
+		}
+
+		for (let i = 0; i < this.originalObjects.length; ++i) if (this.originalObjects[i].name === glyphType.variants[largestIndex].name as string) return i;
 
 		return -1;
 	}
 
-	protected updateInstanceMatrices() {
-		for (let meshId = 0; meshId < this.instanceSizes.length; ++meshId) {
-			if (!this.instanceSizes[meshId]) continue;
+	protected updateInstanceMatrices(): void {
+		for (let meshId = 0; meshId < this.instancedMeshes.length; ++meshId) {
+			if (this.instancedMeshes[meshId] === undefined) continue;
+			const meshes = this.instancedMeshes[meshId].meshes;
 
-			for (let instanceId = 0; instanceId < this.instanceSizes[meshId].length; ++instanceId) {
-				this.setInstanceMatrix(meshId, instanceId);
+			for (let childMeshId = 0; childMeshId < meshes.length; ++childMeshId) {
+				const mesh = meshes[childMeshId];
+
+				mesh.mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+
+				for (let instanceId = 0; instanceId < mesh.positionMatrices.length; ++instanceId) {
+					this.setInstanceMatrix(meshId, childMeshId, instanceId);
+				}
 			}
-
-			this.instancedMeshes[meshId].instanceMatrix.needsUpdate = true;
 		}
 
 		this.threeHandler.render();
 	}
 
-	protected setInstanceMatrix(meshId: number, instanceId: number) {
-		const instanceMatrix = this.instancePositionMatrices[meshId][instanceId].clone();
-		const scaleFactor = this.instanceSizes[meshId][instanceId].basicScaleFactor * this.basicSize * (1 + (this.instanceSizes[meshId][instanceId].variationFactor * 2 - 1) * this.maxVariation);
-		instanceMatrix.scale(new THREE.Vector3(scaleFactor, scaleFactor, scaleFactor));
-		this.instancedMeshes[meshId].setMatrixAt(instanceId, instanceMatrix);
+	protected setInstanceMatrix(meshId: number, childMeshId: number, instanceId: number): void {
+		const matrix = this.instancedMeshes[meshId].meshes[childMeshId].positionMatrices[instanceId].clone();
+		matrix.scale(new THREE.Vector3(this.sizeNormalizationFactor, this.sizeNormalizationFactor, this.sizeNormalizationFactor));
+		this.instancedMeshes[meshId].meshes[childMeshId].mesh.setMatrixAt(instanceId, matrix);
+
+		this.instancedMeshes[meshId].meshes[childMeshId].mesh.instanceMatrix.needsUpdate = true;
 	}
 
 	protected findExtremaInCsv() {
@@ -269,7 +308,24 @@ export class SceneHandler {
 	}
 
 	protected findIndex(attribute: string) {
-		if (!this.csv[0]) return;
+		if (this.csv[0] === undefined) return;
 		this.variableMapping[attribute].index = this.csv[0].findIndex((value: string, index: number) => { if (value === this.variableMapping[attribute].name) return index; });
+	}
+
+	protected countDistinctValuesInCsv(): void {
+		const sets = new Array<Set<string>>(this.csv[0].length);
+		for (let i = 0; i < sets.length; ++i) {
+			sets[i] = new Set<string>();
+		}
+
+		for (let line = 1; line < this.csv.length; ++line) {
+			for (let attribute = 0; attribute < sets.length; ++attribute) {
+				sets[attribute].add(this.csv[line][attribute]);
+			}
+		}
+
+		for (let i = 0; i < sets.length; ++i) {
+			this.distinctValues[i] = sets[i].size;
+		}
 	}
 }
