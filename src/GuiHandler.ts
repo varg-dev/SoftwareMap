@@ -67,16 +67,14 @@ export class GuiHandler {
 		});
 	}
 
-	public addAttributes(attributes: Array<string>) {
+	public async addAttributes(attributes: Array<string>) {
 		for (const attribute of attributes) {
-			if (this.mappingParameters[attribute] !== undefined) continue;
-
 			this.mappingParameters[attribute] = '';
 			this.csvFolder.add(this.mappingParameters, attribute).onFinishChange(async (value: string) => {
 				await this.threeHandler.sceneHandler.setMapping(attribute, value, true);
 			});
 
-			this.threeHandler.sceneHandler.setMapping(attribute, '');
+			await this.threeHandler.sceneHandler.setMapping(attribute, '');
 		}
 	}
 }

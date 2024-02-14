@@ -109,7 +109,8 @@ export class SceneHandler {
 
 		if (csv) this.findExtremaInCsv();
 
-		await this.addMeshes();
+		if (Object.keys(this.variableMapping).length !== 0)
+			await this.addMeshes();
 	}
 
 	protected async addMeshes(): Promise<void> {
@@ -127,8 +128,21 @@ export class SceneHandler {
 			const csvIndex = i + 1;
 
 			const meshIndex = this.calculateMeshIndex(this.csv[csvIndex]);
-			if (meshIndex === -1) {
-				console.warn('Select a mapping for glyphType!');
+			switch (meshIndex) {
+			case -1:
+				console.warn('Select a glyph atlas first!');
+				return;
+			case -2:
+				console.warn('Select a mapping for glyphType first!');
+				return;
+			case -3:
+				console.warn('The mapping of glyphType does not exist!');
+				return;
+			case -4:
+				console.warn('No glyph could be found that satisfies the requirements for the following line:\n' + this.csv[csvIndex]);
+				break;
+			case -5:
+				console.error('The chosen glyph in the glyph atlas does not actually exist!');
 				return;
 			}
 
@@ -155,36 +169,48 @@ export class SceneHandler {
 
 			if (instanceCounter[meshId] === 0 || instanceCounter[meshId] === undefined) continue;
 			for (let childMeshId = 0; childMeshId < originalObject.children.length; ++childMeshId) {
-				const mesh = originalObject.children[childMeshId] as THREE.Mesh;
+				const child = originalObject.children[childMeshId];
 
-				const geometry = mesh.geometry;
-				const material = mesh.material;
-
-				const instancedMesh = new THREE.InstancedMesh(geometry, material, instanceCounter[meshId]);
-				instancedMesh.receiveShadow = false;
-				instancedMesh.castShadow = true;
-
-				const positionMatrices = new Array<THREE.Matrix4>(instanceCounter[meshId]);
-
-				for (let instanceId = 0; instanceId < instanceCounter[meshId]; ++instanceId) {
-					// Order of transformation operations does not matter here
-					const instanceMatrix = new THREE.Matrix4();
-					instanceMatrix.setPosition(positions[meshId][instanceId].x, 0, positions[meshId][instanceId].y);
-
-					positionMatrices[instanceId] = instanceMatrix;
+				if (child instanceof THREE.Group) {
+					for (let groupChildId = 0; groupChildId < child.children.length; ++groupChildId) {
+						this.makeInstancedMesh(child.children[groupChildId] as THREE.Mesh, instanceCounter, meshId, positions);
+					}
+				} else if (child instanceof THREE.Mesh) {
+					this.makeInstancedMesh(child, instanceCounter, meshId, positions);
+				} else {
+					console.error('The glyph atlas you have selected does not have a valid form.');
 				}
-
-				if (this.instancedMeshes[meshId] === undefined) {
-					this.instancedMeshes[meshId] = { meshes: [] };
-				}
-				this.instancedMeshes[meshId].meshes.push({ mesh: instancedMesh, colors: new Array<Color>(), positionMatrices: positionMatrices });
-				this.meshGroup.add(instancedMesh);
 			}
 		}
 
 		this.updateInstanceMatrices();
 
 		this.threeHandler.render();
+	}
+
+	private makeInstancedMesh(mesh: THREE.Mesh, instanceCounter: number[], meshId: number, positions: Array<THREE.Vector2>[]) {
+		const geometry = mesh.geometry;
+		const material = mesh.material;
+
+		const instancedMesh = new THREE.InstancedMesh(geometry, material, instanceCounter[meshId]);
+		instancedMesh.receiveShadow = false;
+		instancedMesh.castShadow = true;
+
+		const positionMatrices = new Array<THREE.Matrix4>(instanceCounter[meshId]);
+
+		for (let instanceId = 0; instanceId < instanceCounter[meshId]; ++instanceId) {
+			// Order of transformation operations does not matter here
+			const instanceMatrix = new THREE.Matrix4();
+			instanceMatrix.setPosition(positions[meshId][instanceId].x, 0, positions[meshId][instanceId].y);
+
+			positionMatrices[instanceId] = instanceMatrix;
+		}
+
+		if (this.instancedMeshes[meshId] === undefined) {
+			this.instancedMeshes[meshId] = {meshes: []};
+		}
+		this.instancedMeshes[meshId].meshes.push({mesh: instancedMesh, colors: new Array<Color>(), positionMatrices: positionMatrices});
+		this.meshGroup.add(instancedMesh);
 	}
 
 	// Option setters
@@ -195,6 +221,12 @@ export class SceneHandler {
 	}
 
 	public async setMapping(option: string, columnName: string, createScene = false) {
+		if (columnName === '') {
+			delete this.variableMapping[option];
+			if (createScene) await this.createScene();
+			return;
+		}
+
 		if (this.variableMapping[option] !== undefined) this.variableMapping[option].name = columnName;
 		else this.variableMapping[option] = { name: columnName, index: -1 };
 		this.findIndex(option);
@@ -213,7 +245,7 @@ export class SceneHandler {
 
 		if (this.guiHandler) {
 			this.guiHandler.resetGui();
-			this.guiHandler.addAttributes(this.json.attributes);
+			await this.guiHandler.addAttributes(this.json.attributes);
 		}
 
 		this.variableMapping = {};
@@ -224,13 +256,28 @@ export class SceneHandler {
 
 	// Helpers
 
+	/**
+	 *
+	 * @param optionLine
+	 * @return The index of the mesh to use, if it exists. Otherwise:
+	 * <ul>
+	 * <li>-1 if json has not yet been set,
+	 * <li>-2 if no mapping for glyphType exists,
+	 * <li>-3 if the mapping provided does not exist,
+	 * <li>-4 if no glyph could be found for this line,
+	 * <li>-5 if the chosen mesh does not exist.
+	 * </ul>
+	 * @protected
+	 */
 	protected calculateMeshIndex(optionLine: string[]): number {
 		if (this.json === undefined) return -1;
 		
 		let largestIndex = -1;
 
-		const glyphTypeIndex = this.variableMapping['glyphType'].index;
-		if (glyphTypeIndex === -1) return -1;
+		const glyphTypeMapping = this.variableMapping['glyphType'];
+		if (glyphTypeMapping === undefined) return -2;
+		const glyphTypeIndex = glyphTypeMapping.index;
+		if (glyphTypeIndex === -1) return -3;
 		const glyphTypeValue = Number(optionLine[glyphTypeIndex]);
 		
 		const glyphType = this.json.types[glyphTypeValue % (this.json.types.length - 1)];
@@ -239,9 +286,9 @@ export class SceneHandler {
 
 			for (const key in glyphType.variants[variantIndex]) {
 				if (key === 'name') continue;
-				if (this.variableMapping[key] === undefined) return -1;
 
-				if ((glyphType.variants[variantIndex] as Record<string, string>)[key] === undefined) continue;
+				if ((glyphType.variants[variantIndex] as Record<string, string>)[key] === undefined
+				|| this.variableMapping[key] === undefined) continue;
 				if (Number(optionLine[this.variableMapping[key].index]) < Number((glyphType.variants[variantIndex] as Record<string, string>)[key])) {
 					variantIsValid = false;
 					break;
@@ -251,10 +298,7 @@ export class SceneHandler {
 			if (variantIsValid) largestIndex = variantIndex;
 		}
 
-		if (largestIndex === -1) {
-			console.warn('No glyph could be found that satisfies the requirements for the following line:\n' + optionLine);
-			return -1;
-		}
+		if (largestIndex === -1) return -4;
 
 		for (let i = 0; i < this.originalObjects.length; ++i) if (this.originalObjects[i].name === glyphType.variants[largestIndex].name as string) return i;
 
@@ -282,7 +326,10 @@ export class SceneHandler {
 
 	protected setInstanceMatrix(meshId: number, childMeshId: number, instanceId: number): void {
 		const matrix = this.instancedMeshes[meshId].meshes[childMeshId].positionMatrices[instanceId].clone();
-		matrix.scale(new THREE.Vector3(this.sizeNormalizationFactor, this.sizeNormalizationFactor, this.sizeNormalizationFactor));
+
+		const scalingFactor = this.sizeNormalizationFactor * this.basicSize;
+
+		matrix.scale(new THREE.Vector3(scalingFactor, scalingFactor, scalingFactor));
 		this.instancedMeshes[meshId].meshes[childMeshId].mesh.setMatrixAt(instanceId, matrix);
 
 		this.instancedMeshes[meshId].meshes[childMeshId].mesh.instanceMatrix.needsUpdate = true;
@@ -292,9 +339,14 @@ export class SceneHandler {
 		this.csvMin = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
 		this.csvMax = new THREE.Vector2(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
 
+		const xMapping = this.variableMapping['positionX'];
+		const yMapping = this.variableMapping['positionY'];
+
+		if (xMapping === undefined || yMapping === undefined) return;
+
 		for (let i = 1; i < this.csv.length; ++i) {
-			const x = Number(this.csv[i][this.variableMapping['positionX'].index]);
-			const y = Number(this.csv[i][this.variableMapping['positionY'].index]);
+			const x = Number(this.csv[i][xMapping.index]);
+			const y = Number(this.csv[i][yMapping.index]);
 
 			if (x < this.csvMin.x) this.csvMin.x = x;
 			if (x > this.csvMax.x) this.csvMax.x = x;

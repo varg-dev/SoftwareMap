@@ -108,7 +108,13 @@ export class GlyphLoader {
 				json.types[i].name = json.types[i].name.replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
 			}
 
-			if (json.types[i].variants) {
+			if (includesInvalid(json.types[i].baseModel)) {
+				includesInvalidChars = true;
+				// eslint-disable-next-line no-useless-escape
+				json.types[i].baseModel = json.types[i].baseModel.replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+			}
+
+			if (json.types[i].variants !== undefined) {
 				for (let j = 0; j < json.types[i].variants.length; ++j) {
 					if (includesInvalid(json.types[i].variants[j].name as string)) {
 						includesInvalidChars = true;
