@@ -4,7 +4,8 @@ import {GlyphLoader} from './GlyphLoader.ts';
 
 export class GuiHandler {
 	protected gui!: GUI;
-	protected csvFolder!: GUI;
+	protected csvFolder: GUI | undefined;
+	protected optionalParameters: GUI | undefined;
 	protected threeHandler: ThreeHandler;
 	protected glyphLoader: GlyphLoader;
 
@@ -13,7 +14,7 @@ export class GuiHandler {
 		glyphs: ''
 	};
 
-	protected originalMappingParameters: Record<string, string> = {
+	protected requiredMappingParameters: Record<string, string> = {
 		positionX: '',
 		positionY: '',
 		glyphType: ''
@@ -27,8 +28,6 @@ export class GuiHandler {
 		this.glyphLoader = glyphLoader;
 
 		this.threeHandler.sceneHandler.guiHandler = this;
-
-		this.resetGui();
 	}
 
 	public resetGui(): void {
@@ -39,19 +38,6 @@ export class GuiHandler {
 		this.gui.add(this.basicParameters, 'basicSize').min(0.01).max(1).onChange((value: number) => {
 			this.threeHandler.sceneHandler.setBasicSize(value);
 		});
-
-		this.csvFolder = this.gui.addFolder('Name of CSV columns that govern...');
-
-
-		this.mappingParameters = {};
-		for (const key in this.originalMappingParameters) {
-			this.mappingParameters[key] = this.originalMappingParameters[key];
-		}
-		for (const mappingParameter in this.mappingParameters) {
-			this.csvFolder.add(this.mappingParameters, mappingParameter).onFinishChange(async (value: string) => {
-				await this.threeHandler.sceneHandler.setMapping(mappingParameter, value, true);
-			});
-		}
 
 		const glyphNamesRecord = import.meta.glob('/public/*.json');
 		const glyphNames: string[] = [];
@@ -65,16 +51,48 @@ export class GuiHandler {
 		this.gui.add(this.basicParameters, 'glyphs', glyphNames).onChange(async (value: string) => {
 			await this.glyphLoader.setGlyphAtlas(value + '.json');
 		});
+
+		for (const key in this.requiredMappingParameters) {
+			this.requiredMappingParameters[key] = '';
+		}
+
+		if (this.csvFolder !== undefined) {
+			this.csvFolder.destroy();
+			if (this.optionalParameters !== undefined)
+				this.optionalParameters.destroy();
+		}
+		this.csvFolder = undefined;
+		this.optionalParameters = undefined;
 	}
 
-	public async addAttributes(attributes: Array<string>) {
+	public addCsvFolder(): void {
+		if (this.csvFolder !== undefined) return;
+
+		this.csvFolder = this.gui.addFolder('Name of CSV columns that govern...');
+
+		this.mappingParameters = {};
+		for (const key in this.requiredMappingParameters) {
+			this.csvFolder.add(this.requiredMappingParameters, key).onFinishChange(async (value: string) => {
+				await this.threeHandler.sceneHandler.setMapping(key, value, true);
+			});
+		}
+	}
+
+	public addOptionalFolder(): void {
+		if (this.optionalParameters !== undefined) return;
+
+		this.optionalParameters = this.csvFolder!.addFolder('Optional mappings');
+
+		for (const mappingParameter in this.mappingParameters) {
+			this.optionalParameters.add(this.mappingParameters, mappingParameter).onFinishChange(async (value: string) => {
+				await this.threeHandler.sceneHandler.setMapping(mappingParameter, value, true);
+			});
+		}
+	}
+
+	public addAttributes(attributes: Array<string>) {
 		for (const attribute of attributes) {
 			this.mappingParameters[attribute] = '';
-			this.csvFolder.add(this.mappingParameters, attribute).onFinishChange(async (value: string) => {
-				await this.threeHandler.sceneHandler.setMapping(attribute, value, true);
-			});
-
-			await this.threeHandler.sceneHandler.setMapping(attribute, '');
 		}
 	}
 }

@@ -48,11 +48,7 @@ export class SceneHandler {
 
 		this.basicSize = 0.1;
 
-		this.variableMapping = {
-			positionX: { name: '', index: -1 },
-			positionY: { name: '', index: -1 },
-			glyphType: { name: '', index: -1 }
-		};
+		this.variableMapping = {};
 
 		this.scene = new THREE.Scene();
 		this.scene.background = new THREE.Color(0xaaaacc);
@@ -84,12 +80,18 @@ export class SceneHandler {
 	}
 
 	public async createScene(csv?: Array<Array<string>>): Promise<void> {
-		if (csv) this.csv = csv;
+		this.clearScene();
+
+		if (csv !== undefined) this.csv = csv;
 		if (this.csv.length === 0) {
 			console.error('Cannot create scene from empty csv!');
 			return;
 		}
-		if (csv) this.countDistinctValuesInCsv();
+		if (csv !== undefined) {
+			if (this.guiHandler !== undefined)
+				this.guiHandler?.resetGui();
+			this.countDistinctValuesInCsv();
+		}
 
 		let invalidMappings = '';
 
@@ -107,17 +109,13 @@ export class SceneHandler {
 			return;
 		}
 
-		if (csv) this.findExtremaInCsv();
+		if (csv !== undefined) this.findExtremaInCsv();
 
 		if (Object.keys(this.variableMapping).length !== 0)
 			await this.addMeshes();
 	}
 
 	protected async addMeshes(): Promise<void> {
-		// Clear old instance data
-		this.instancedMeshes = new Array<MeshData>(this.originalObjects.length);
-		this.meshGroup.clear();
-
 		/*
 		 * Find how many instances of each Mesh are required and where they should be placed.
 		 */
@@ -229,6 +227,12 @@ export class SceneHandler {
 
 		if (this.variableMapping[option] !== undefined) this.variableMapping[option].name = columnName;
 		else this.variableMapping[option] = { name: columnName, index: -1 };
+
+		if (this.variableMapping['positionX'] !== undefined
+		&& this.variableMapping['positionY'] !== undefined
+		&& this.variableMapping['glyphType'] !== undefined
+		&& this.guiHandler !== undefined) this.guiHandler.addOptionalFolder();
+
 		this.findIndex(option);
 
 		if (option === 'glyphType' && this.json && this.distinctValues[this.variableMapping[option].index] > this.json.types.length) {
@@ -245,7 +249,8 @@ export class SceneHandler {
 
 		if (this.guiHandler) {
 			this.guiHandler.resetGui();
-			await this.guiHandler.addAttributes(this.json.attributes);
+			this.guiHandler.addCsvFolder();
+			this.guiHandler.addAttributes(this.json.attributes);
 		}
 
 		this.variableMapping = {};
@@ -278,9 +283,13 @@ export class SceneHandler {
 		if (glyphTypeMapping === undefined) return -2;
 		const glyphTypeIndex = glyphTypeMapping.index;
 		if (glyphTypeIndex === -1) return -3;
-		const glyphTypeValue = Number(optionLine[glyphTypeIndex]);
-		
-		const glyphType = this.json.types[glyphTypeValue % (this.json.types.length - 1)];
+		let glyphTypeValue = Number(optionLine[glyphTypeIndex]);
+
+		// if more distinct values of the csv column mapped to glyphType exist, we wrap around (while preventing NaN)
+		if (this.json.types.length === 1) glyphTypeValue = 0;
+		else glyphTypeValue = glyphTypeValue % (this.json.types.length - 1);
+
+		const glyphType = this.json.types[glyphTypeValue];
 		for (let variantIndex = 0; variantIndex < glyphType.variants.length; ++variantIndex) {
 			let variantIsValid = true;
 
@@ -379,5 +388,11 @@ export class SceneHandler {
 		for (let i = 0; i < sets.length; ++i) {
 			this.distinctValues[i] = sets[i].size;
 		}
+	}
+
+	protected clearScene(): void {
+		this.instancedMeshes = new Array<MeshData>(this.originalObjects.length);
+		this.meshGroup.clear();
+		this.threeHandler.render();
 	}
 }
