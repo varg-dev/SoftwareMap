@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 //import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { WorldInHandControls } from './worldInHandControls.ts';
+import { WorldInHandControls } from '@world-in-hand-controls/threejs-world-in-hand';
 import {SceneHandler} from './SceneHandler.ts';
 
 export class ThreeHandler {
