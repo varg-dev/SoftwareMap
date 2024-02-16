@@ -31,7 +31,7 @@ export class ThreeHandler {
 		this.sceneHandler = new SceneHandler(this);
 
 		this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneHandler.scene);
-		this.controls.allowRotationBelowScene = false;
+		this.controls.allowRotationBelowGroundPlane = false;
 		this.controls.useBottomOfBoundingBoxAsGroundPlane = false;
 
 		this.startRendering();
