@@ -11,9 +11,9 @@ fileUpload.addEventListener('change', async () => {
 	const file = fileList[0];
 	if (!file) return;
 	csv = await parse(await file.text());
-	await threeHandler.sceneHandler.createScene(csv);
+	await threeHandler.sceneHandler.setCsv(csv);
 });
 
 const threeHandler = new ThreeHandler();
 const glyphLoader = new GlyphLoader(threeHandler.sceneHandler);
-const guiHandler = new GuiHandler(threeHandler, glyphLoader);
+new GuiHandler(threeHandler, glyphLoader);

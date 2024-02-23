@@ -2,6 +2,17 @@ import GUI from 'lil-gui';
 import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphLoader} from './GlyphLoader.ts';
 
+type BasicParameters = {
+	basicSize: number,
+	glyphs: string
+}
+
+type RequiredParameters = {
+	positionX: string,
+	positionY: string,
+	glyphType: string
+}
+
 export class GuiHandler {
 	protected gui!: GUI;
 	protected csvFolder: GUI | undefined;
@@ -9,19 +20,11 @@ export class GuiHandler {
 	protected threeHandler: ThreeHandler;
 	protected glyphLoader: GlyphLoader;
 
-	protected basicParameters = {
-		basicSize: 0.1,
-		glyphs: ''
-	};
+	protected basicParameters: BasicParameters & Record<string, string | number> | undefined;
 
-	protected requiredMappingParameters: Record<string, string> = {
-		positionX: '',
-		positionY: '',
-		glyphType: ''
-	};
+	protected requiredMappingParameters: RequiredParameters & Record<string, string> | undefined;
 
-	protected mappingParameters: Record<string, string> = {
-	};
+	protected mappingParameters: Record<string, string> | undefined;
 
 	constructor(threeHandler: ThreeHandler, glyphLoader: GlyphLoader) {
 		this.threeHandler = threeHandler;
@@ -30,39 +33,33 @@ export class GuiHandler {
 		this.threeHandler.sceneHandler.guiHandler = this;
 	}
 
-	public resetGui(): void {
-		if (this.gui) this.gui.destroy();
+	public addGUI(): void {
+		if (this.gui !== undefined) return;
 
 		this.gui = new GUI();
+
+		this.basicParameters = {
+			basicSize: 0.1,
+			glyphs: ''
+		};
+
+		this.requiredMappingParameters = {
+			positionX: '',
+			positionY: '',
+			glyphType: ''
+		};
 
 		this.gui.add(this.basicParameters, 'basicSize').min(0.01).max(1).onChange((value: number) => {
 			this.threeHandler.sceneHandler.setBasicSize(value);
 		});
 
-		const glyphNamesRecord = import.meta.glob('/public/*.json');
-		const glyphNames: string[] = [];
-
-		for (const glyphName in glyphNamesRecord) {
-			const sanitizedFront = glyphName.substring(glyphName.lastIndexOf('/') + 1);
-			const sanitizedAll = sanitizedFront.substring(0, sanitizedFront.lastIndexOf('.'));
-			glyphNames.push(sanitizedAll);
-		}
-
-		this.gui.add(this.basicParameters, 'glyphs', glyphNames).onChange(async (value: string) => {
+		this.gui.add(this.basicParameters, 'glyphs', this.getGlyphAtlasNames()).onChange(async (value: string) => {
 			await this.glyphLoader.setGlyphAtlas(value + '.json');
 		});
 
 		for (const key in this.requiredMappingParameters) {
 			this.requiredMappingParameters[key] = '';
 		}
-
-		if (this.csvFolder !== undefined) {
-			this.csvFolder.destroy();
-			if (this.optionalParameters !== undefined)
-				this.optionalParameters.destroy();
-		}
-		this.csvFolder = undefined;
-		this.optionalParameters = undefined;
 	}
 
 	public addCsvFolder(): void {
@@ -79,9 +76,9 @@ export class GuiHandler {
 	}
 
 	public addOptionalFolder(): void {
-		if (this.optionalParameters !== undefined) return;
+		if (this.optionalParameters !== undefined || this.csvFolder === undefined) return;
 
-		this.optionalParameters = this.csvFolder!.addFolder('Optional mappings');
+		this.optionalParameters = this.csvFolder.addFolder('Optional mappings');
 
 		for (const mappingParameter in this.mappingParameters) {
 			this.optionalParameters.add(this.mappingParameters, mappingParameter).onFinishChange(async (value: string) => {
@@ -90,9 +87,39 @@ export class GuiHandler {
 		}
 	}
 
+	public removeOptionalFolder(): void {
+		if (this.optionalParameters === undefined) return;
+
+		this.hideOptionalFolder();
+
+		this.mappingParameters = {};
+	}
+
+	public hideOptionalFolder(): void {
+		if (this.optionalParameters === undefined) return;
+
+		this.optionalParameters.destroy();
+		this.optionalParameters = undefined;
+	}
+
 	public addAttributes(attributes: Array<string>) {
+		if (this.mappingParameters === undefined) this.mappingParameters = {};
+
 		for (const attribute of attributes) {
 			this.mappingParameters[attribute] = '';
 		}
+	}
+
+	protected getGlyphAtlasNames(): string[] {
+		const glyphNamesRecord = import.meta.glob('/public/*.json');
+		const glyphNames: string[] = [];
+
+		for (const glyphName in glyphNamesRecord) {
+			const sanitizedFront = glyphName.substring(glyphName.lastIndexOf('/') + 1);
+			const sanitizedAll = sanitizedFront.substring(0, sanitizedFront.lastIndexOf('.'));
+			glyphNames.push(sanitizedAll);
+		}
+
+		return glyphNames;
 	}
 }
