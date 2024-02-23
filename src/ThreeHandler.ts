@@ -38,8 +38,6 @@ export class ThreeHandler {
 	}
 
 	protected startRendering() {
-		this.render();
-
 		const requestUpdate = () => {
 			if (this.updateRequested) return;
 
@@ -48,6 +46,8 @@ export class ThreeHandler {
 			// lambda to preserve 'this'
 			requestAnimationFrame(() => {this.render();});
 		};
+
+		requestUpdate();
 
 		this.controls.addEventListener('change', requestUpdate);
 

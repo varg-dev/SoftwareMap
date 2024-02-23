@@ -5,7 +5,7 @@ import {SceneHandler} from './SceneHandler.ts';
 export type Glyph = {
 	baseModel: string,
 	name: string,
-	variants: Array<{name: string} | Record<string, number | string>>
+	variants: Array<{name: string} & Record<string, number | string>>
 }
 
 export type GlyphJson = {
@@ -103,23 +103,20 @@ export class GlyphLoader {
 		for (let i = 0; i < json.types.length; ++i) {
 			if (includesInvalid(json.types[i].name)) {
 				includesInvalidChars = true;
-				// Equivalent to https://github.com/mrdoob/three.js/blob/c2b4d2fa5fb1464cf4caa81bc831b35572ce7b9d/src/animation/PropertyBinding.js#L142
-				// eslint-disable-next-line no-useless-escape
-				json.types[i].name = json.types[i].name.replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+				// Fixes https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726
+				json.types[i].name = THREE.PropertyBinding.sanitizeNodeName(json.types[i].name);
 			}
 
 			if (includesInvalid(json.types[i].baseModel)) {
 				includesInvalidChars = true;
-				// eslint-disable-next-line no-useless-escape
-				json.types[i].baseModel = json.types[i].baseModel.replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+				json.types[i].baseModel = THREE.PropertyBinding.sanitizeNodeName(json.types[i].baseModel);
 			}
 
 			if (json.types[i].variants !== undefined) {
 				for (let j = 0; j < json.types[i].variants.length; ++j) {
 					if (includesInvalid(json.types[i].variants[j].name as string)) {
 						includesInvalidChars = true;
-						// eslint-disable-next-line no-useless-escape
-						json.types[i].variants[j].name = (json.types[i].variants[j].name as string).replace(/\s/g, '_').replace(/[\[\].:\\]/g, '');
+						json.types[i].variants[j].name = THREE.PropertyBinding.sanitizeNodeName(json.types[i].variants[j].name);
 					}
 				}
 			}
