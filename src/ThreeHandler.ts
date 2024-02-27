@@ -71,8 +71,6 @@ export class ThreeHandler {
 
 		this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
 		this.renderer.render(this.sceneHandler.scene, this.camera);
-		this.renderer.setRenderTarget(null);
-		this.renderer.render(this.sceneHandler.scene, this.camera);
 
 		this.controls.update();
 	}
