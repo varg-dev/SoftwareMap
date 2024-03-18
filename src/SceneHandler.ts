@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphAtlas, GlyphJson} from './GlyphLoader.ts';
-import {GuiHandler} from './GuiHandler.ts';
+import {GuiHandler2} from './GuiHandler2.ts';
 import {Color} from 'three';
 
 type MeshData = {
@@ -16,7 +16,7 @@ type CSV = Array<Array<string>>;
 
 export class SceneHandler {
 	protected threeHandler: ThreeHandler;
-	public guiHandler: GuiHandler | undefined;
+	public guiHandler: GuiHandler2 | undefined;
 
 	readonly scene: THREE.Scene;
 	protected meshGroup: THREE.Group;
@@ -195,7 +195,7 @@ export class SceneHandler {
 		this.findExtremaInCsv();
 		await this.createScene();
 
-		if (this.guiHandler !== undefined) this.guiHandler.addGUI();
+		if (this.guiHandler !== undefined) this.guiHandler.componentStatus = { basicMappings: true };
 	}
 
 	public setBasicSize(basicSize: number) {
@@ -208,10 +208,10 @@ export class SceneHandler {
 
 		if (columnName === '') {
 			if (this.guiHandler !== undefined && !this.requiredMappingsExist()) {
-				this.guiHandler.hideOptionalFolder();
+				this.guiHandler.componentStatus = { optionalMappings: false };
 			}
 		} else {
-			if (this.requiredMappingsExist() && this.guiHandler !== undefined) this.guiHandler.addOptionalFolder();
+			if (this.requiredMappingsExist() && this.guiHandler !== undefined) this.guiHandler.componentStatus = { optionalMappings: true };
 
 			if (this.currentMappingsAreInvalid()) return;
 			this.findIndex(option);
@@ -230,9 +230,8 @@ export class SceneHandler {
 		this.json = glyphAtlas.json;
 
 		if (this.guiHandler) {
-			this.guiHandler.addCsvFolder();
-			this.guiHandler.removeOptionalFolder();
-			this.guiHandler.addAttributes(this.json.attributes);
+			this.guiHandler.componentStatus = { requiredMappings: true, optionalMappings: false };
+			this.guiHandler.glyphAtlasAxes = this.json.attributes;
 		}
 
 		for (const key in this.variableMapping) {
@@ -241,7 +240,7 @@ export class SceneHandler {
 		this.originalObjects = glyphAtlas.glyphs;
 		this.sizeNormalizationFactor = 1 / glyphAtlas.largestExtent;
 
-		if (this.requiredMappingsExist() && this.guiHandler !== undefined) this.guiHandler.addOptionalFolder();
+		if (this.requiredMappingsExist() && this.guiHandler !== undefined) this.guiHandler.componentStatus = { optionalMappings: true };
 
 		await this.createScene();
 	}
