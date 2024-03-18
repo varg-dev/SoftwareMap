@@ -129,6 +129,9 @@ export class GuiHandler2 {
 				this.optionalMappingsGui.add(this.mappings.optionalMappings, axis, this._csvAttributes)
 					.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping(axis, value, true); });
 			}
+		} else {
+			this.optionalMappingsGui?.destroy();
+			this.optionalMappingsGui = undefined;
 		}
 	}
 
