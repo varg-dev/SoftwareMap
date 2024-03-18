@@ -14,11 +14,13 @@ type RequiredParameters = {
 }
 
 export class GuiHandler {
-	protected gui!: GUI;
+	protected gui: GUI | undefined;
 	protected csvFolder: GUI | undefined;
 	protected optionalParameters: GUI | undefined;
 	protected threeHandler: ThreeHandler;
 	protected glyphLoader: GlyphLoader;
+
+	protected csvAttributes: Array<string>;
 
 	protected basicParameters: BasicParameters & Record<string, string | number> | undefined;
 
@@ -29,12 +31,13 @@ export class GuiHandler {
 	constructor(threeHandler: ThreeHandler, glyphLoader: GlyphLoader) {
 		this.threeHandler = threeHandler;
 		this.glyphLoader = glyphLoader;
+		this.csvAttributes = [];
 
 		this.threeHandler.sceneHandler.guiHandler = this;
 	}
 
 	public addGUI(): void {
-		if (this.gui !== undefined) return;
+		this.gui?.destroy();
 
 		this.gui = new GUI();
 
@@ -63,25 +66,26 @@ export class GuiHandler {
 	}
 
 	public addCsvFolder(): void {
-		if (this.csvFolder !== undefined) return;
+		this.csvFolder?.destroy();
 
-		this.csvFolder = this.gui.addFolder('Name of CSV columns that govern...');
+		this.csvFolder = this.gui?.addFolder('Name of CSV columns that govern...');
 
 		this.mappingParameters = {};
 		for (const key in this.requiredMappingParameters) {
-			this.csvFolder.add(this.requiredMappingParameters, key).onFinishChange(async (value: string) => {
+			this.csvFolder!.add(this.requiredMappingParameters, key, this.csvAttributes).onFinishChange(async (value: string) => {
 				await this.threeHandler.sceneHandler.setMapping(key, value, true);
 			});
 		}
 	}
 
 	public addOptionalFolder(): void {
-		if (this.optionalParameters !== undefined || this.csvFolder === undefined) return;
+		if (this.optionalParameters !== undefined) this.optionalParameters?.destroy();
+		if (this.csvFolder === undefined) return;
 
 		this.optionalParameters = this.csvFolder.addFolder('Optional mappings');
 
 		for (const mappingParameter in this.mappingParameters) {
-			this.optionalParameters.add(this.mappingParameters, mappingParameter).onFinishChange(async (value: string) => {
+			this.optionalParameters.add(this.mappingParameters, mappingParameter, this.csvAttributes).onFinishChange(async (value: string) => {
 				await this.threeHandler.sceneHandler.setMapping(mappingParameter, value, true);
 			});
 		}
@@ -121,5 +125,9 @@ export class GuiHandler {
 		}
 
 		return glyphNames;
+	}
+
+	public setCsvAttributes(csvAttributes: Array<string>) {
+		this.csvAttributes = csvAttributes;
 	}
 }

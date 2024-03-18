@@ -5,7 +5,7 @@ import {GuiHandler} from './GuiHandler.ts';
 
 const threeHandler = new ThreeHandler();
 const glyphLoader = new GlyphLoader(threeHandler.sceneHandler);
-new GuiHandler(threeHandler, glyphLoader);
+const guiHandler = new GuiHandler(threeHandler, glyphLoader);
 
 const fileUpload = document.getElementById('fileUpload') as HTMLInputElement;
 
@@ -19,5 +19,6 @@ async function checkAndLoadCsv() {
 	const file = fileList[0];
 	if (file === undefined) return;
 	const csv = await parse(await file.text());
+	guiHandler.setCsvAttributes(csv[0]);
 	await threeHandler.sceneHandler.setCsv(csv);
 }

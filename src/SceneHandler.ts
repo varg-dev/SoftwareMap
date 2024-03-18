@@ -230,7 +230,6 @@ export class SceneHandler {
 		this.json = glyphAtlas.json;
 
 		if (this.guiHandler) {
-			this.guiHandler.addGUI();
 			this.guiHandler.addCsvFolder();
 			this.guiHandler.removeOptionalFolder();
 			this.guiHandler.addAttributes(this.json.attributes);
@@ -395,7 +394,7 @@ export class SceneHandler {
 
 			for (let i = 0; i < this.csv[0].length; ++i) messageString += ('\t' + this.csv[0][i] + '\n');
 
-			alert(messageString);
+			console.error(messageString);
 			return true;
 		}
 
