@@ -1,0 +1,5 @@
+- ThreeJS GLTF Loader does not support names with dots or columns - [Relevant forum post](https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726)
+- Meshes don't really have children, but a child which is a group -> TreeFlowersRocks
+- Fehlermeldungen nicht als alert, sondern evtl als div
+- Load file on reload if previously set
+- Query parameters

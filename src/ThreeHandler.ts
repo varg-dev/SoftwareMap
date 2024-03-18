@@ -38,8 +38,6 @@ export class ThreeHandler {
 	}
 
 	protected startRendering() {
-		this.render();
-
 		const requestUpdate = () => {
 			if (this.updateRequested) return;
 
@@ -49,6 +47,8 @@ export class ThreeHandler {
 			requestAnimationFrame(() => {this.render();});
 		};
 
+		requestUpdate();
+
 		this.controls.addEventListener('change', requestUpdate);
 
 		window.addEventListener('resize', () => {
@@ -57,7 +57,7 @@ export class ThreeHandler {
 			this.renderer.setPixelRatio(window.devicePixelRatio);
 			this.camera.updateProjectionMatrix();
 
-			//@ts-expect-error ThreeJS type definitions seem to be broken, this works.
+			//@ts-expect-error three.js type definitions seem to be broken, this works.
 			this.sceneHandler.scene.dispatchEvent({type: 'resize'});
 
 			requestUpdate();
@@ -70,8 +70,6 @@ export class ThreeHandler {
 		this.updateRequested = false;
 
 		this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
-		this.renderer.render(this.sceneHandler.scene, this.camera);
-		this.renderer.setRenderTarget(null);
 		this.renderer.render(this.sceneHandler.scene, this.camera);
 
 		this.controls.update();
