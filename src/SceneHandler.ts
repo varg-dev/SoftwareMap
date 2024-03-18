@@ -266,7 +266,9 @@ export class SceneHandler {
 		const glyphTypeMapping = this.variableMapping['glyphType'];
 		const glyphTypeIndex = glyphTypeMapping.index;
 		if (glyphTypeIndex === -1) return -3;
-		let glyphTypeValue = Number(optionLine[glyphTypeIndex]);
+		const originalValue = Number(optionLine[glyphTypeIndex]);
+		let glyphTypeValue = Math.floor(originalValue);
+		if (originalValue !== glyphTypeValue) console.warn('The attribute mapped to "Glyph type" is not integer and as such will be rounded.');
 
 		// if more distinct values of the csv column mapped to glyphType exist, we wrap around (while preventing NaN)
 		if (this.json.types.length === 1) glyphTypeValue = 0;
