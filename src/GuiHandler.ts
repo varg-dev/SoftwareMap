@@ -1,116 +1,148 @@
-import GUI from 'lil-gui';
+import GUI, {Controller} from 'lil-gui';
 import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphLoader} from './GlyphLoader.ts';
 
-type BasicParameters = {
-	basicSize: number,
-	glyphs: string
-}
+type Mappings = {
+	basicMappings: {
+		size: number | undefined,
+		glyphAtlas: string | undefined
+	},
+	requiredMappings: {
+		positionX: string | undefined,
+		positionY: string | undefined,
+		glyphType: string | undefined
+	} & Record<string, string | undefined>,
+	optionalMappings: Record<string, string>
+};
 
-type RequiredParameters = {
-	positionX: string,
-	positionY: string,
-	glyphType: string
-}
+export type ComponentStatus = {
+	basicMappings: boolean,
+	requiredMappings: boolean,
+	optionalMappings: boolean
+};
+
+export type ComponentStatusUpdate = {
+	basicMappings?: boolean,
+	requiredMappings?: boolean,
+	optionalMappings?: boolean
+};
 
 export class GuiHandler {
-	protected gui: GUI | undefined;
-	protected csvFolder: GUI | undefined;
-	protected optionalParameters: GUI | undefined;
+	protected mappings: Mappings;
+
 	protected threeHandler: ThreeHandler;
 	protected glyphLoader: GlyphLoader;
 
-	protected csvAttributes: Array<string>;
+	protected mainGui: GUI;
+	protected basicMappingsGui: GUI | undefined;
+	protected requiredMappingsGui: GUI | undefined;
+	protected optionalMappingsGui: GUI | undefined;
 
-	protected basicParameters: BasicParameters & Record<string, string | number> | undefined;
-
-	protected requiredMappingParameters: RequiredParameters & Record<string, string> | undefined;
-
-	protected mappingParameters: Record<string, string> | undefined;
+	protected _csvAttributes: Array<string>;
+	protected _glyphAtlasAxes: Array<string>;
+	protected _componentStatus: ComponentStatus;
 
 	constructor(threeHandler: ThreeHandler, glyphLoader: GlyphLoader) {
+		this.mainGui = new GUI({title: 'Options'});
+		this.mappings = {
+			basicMappings: {
+				size: 0.5,
+				glyphAtlas: ''
+			},
+			requiredMappings: {
+				positionX: '',
+				positionY: '',
+				glyphType: ''
+			},
+			optionalMappings: {}
+		};
+		this._componentStatus = {
+			basicMappings: false,
+			requiredMappings: false,
+			optionalMappings: false
+		};
+		this._csvAttributes = [];
+		this._glyphAtlasAxes = [];
+
 		this.threeHandler = threeHandler;
 		this.glyphLoader = glyphLoader;
-		this.csvAttributes = [];
-
-		this.threeHandler.sceneHandler.guiHandler = this;
 	}
 
-	public addGUI(): void {
-		this.gui?.destroy();
+	public set csvAttributes(value: Array<string>) {
+		// deep-copy array
+		this._csvAttributes = [...value];
+		// explicitly remove the 'Document' attribute (a string) for now
+		const indexOfDocument = this._csvAttributes.indexOf('Document');
+		if (indexOfDocument !== -1) this._csvAttributes.splice(indexOfDocument, 1);
 
-		this.gui = new GUI();
+		// shallowly deep-copy object (_componentStatus has no nested objects)
+		const componentStatus = {...this._componentStatus};
+		this.componentStatus = { basicMappings: false, requiredMappings: false, optionalMappings: false };
+		this.componentStatus = componentStatus;
 
-		this.basicParameters = {
-			basicSize: 0.1,
-			glyphs: ''
-		};
+		this.clearInvalidMappings();
+	}
 
-		this.requiredMappingParameters = {
-			positionX: '',
-			positionY: '',
-			glyphType: ''
-		};
+	public set glyphAtlasAxes(value: Array<string>) {
+		this._glyphAtlasAxes = value;
+	}
 
-		this.gui.add(this.basicParameters, 'basicSize').min(0.01).max(1).onChange((value: number) => {
-			this.threeHandler.sceneHandler.setBasicSize(value);
-		});
-
-		this.gui.add(this.basicParameters, 'glyphs', this.getGlyphAtlasNames()).onChange(async (value: string) => {
-			await this.glyphLoader.setGlyphAtlas(value + '.json');
-		});
-
-		for (const key in this.requiredMappingParameters) {
-			this.requiredMappingParameters[key] = '';
+	public set componentStatus(value: ComponentStatusUpdate) {
+		if (value.basicMappings !== undefined && this._componentStatus.basicMappings !== value.basicMappings) {
+			this._componentStatus.basicMappings = value.basicMappings;
+			this.updateBasicMappingStatus();
+		}
+		if (value.requiredMappings !== undefined && this._componentStatus.requiredMappings !== value.requiredMappings) {
+			this._componentStatus.requiredMappings = value.requiredMappings;
+			this.updateRequiredMappingStatus();
+		}
+		if (value.optionalMappings !== undefined && this._componentStatus.optionalMappings !== value.optionalMappings) {
+			this._componentStatus.optionalMappings = value.optionalMappings;
+			this.updateOptionalMappingStatus();
 		}
 	}
 
-	public addCsvFolder(): void {
-		this.csvFolder?.destroy();
+	protected updateBasicMappingStatus(): void {
+		if (this._componentStatus.basicMappings) {
+			this.basicMappingsGui = this.mainGui.addFolder('Basic mappings');
 
-		this.csvFolder = this.gui?.addFolder('Name of CSV columns that govern...');
-
-		this.mappingParameters = {};
-		for (const key in this.requiredMappingParameters) {
-			this.csvFolder!.add(this.requiredMappingParameters, key, this.csvAttributes).onFinishChange(async (value: string) => {
-				await this.threeHandler.sceneHandler.setMapping(key, value, true);
-			});
+			this.basicMappingsGui.add(this.mappings.basicMappings, 'size').name('Size multiplier').min(0.01).max(1)
+				.onChange((value: number) => { this.threeHandler.sceneHandler.setBasicSize(value); });
+			this.basicMappingsGui.add(this.mappings.basicMappings, 'glyphAtlas', this.getGlyphAtlasNames()).name('Glyph atlas')
+				.onChange( async (value: string) => { await this.glyphLoader.setGlyphAtlas(value + '.json'); });
+		} else {
+			this.basicMappingsGui?.destroy();
+			this.basicMappingsGui = undefined;
 		}
 	}
 
-	public addOptionalFolder(): void {
-		if (this.optionalParameters !== undefined) this.optionalParameters?.destroy();
-		if (this.csvFolder === undefined) return;
+	protected updateRequiredMappingStatus(): void {
+		if (this._componentStatus.requiredMappings) {
+			this.requiredMappingsGui = this.mainGui.addFolder('Required mappings');
 
-		this.optionalParameters = this.csvFolder.addFolder('Optional mappings');
-
-		for (const mappingParameter in this.mappingParameters) {
-			this.optionalParameters.add(this.mappingParameters, mappingParameter, this.csvAttributes).onFinishChange(async (value: string) => {
-				await this.threeHandler.sceneHandler.setMapping(mappingParameter, value, true);
-			});
+			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionX', this._csvAttributes).name('x position')
+				.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping('positionX', value, true); });
+			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionY', this._csvAttributes).name('y position')
+				.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping('positionY', value, true); });
+			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'glyphType', this._csvAttributes).name('Glyph type')
+				.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping('glyphType', value, true); });
+		} else {
+			this.requiredMappingsGui?.destroy();
+			this.requiredMappingsGui = undefined;
 		}
 	}
 
-	public removeOptionalFolder(): void {
-		if (this.optionalParameters === undefined) return;
+	protected updateOptionalMappingStatus(): void {
+		if (this._componentStatus.optionalMappings) {
+			this.optionalMappingsGui = this.mainGui.addFolder('Optional mappings');
 
-		this.hideOptionalFolder();
-
-		this.mappingParameters = {};
-	}
-
-	public hideOptionalFolder(): void {
-		if (this.optionalParameters === undefined) return;
-
-		this.optionalParameters.destroy();
-		this.optionalParameters = undefined;
-	}
-
-	public addAttributes(attributes: Array<string>) {
-		if (this.mappingParameters === undefined) this.mappingParameters = {};
-
-		for (const attribute of attributes) {
-			this.mappingParameters[attribute] = '';
+			for (const axis of this._glyphAtlasAxes) {
+				this.optionalMappingsGui.add(this.mappings.optionalMappings, axis, this._csvAttributes)
+					.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping(axis, value, true); });
+			}
+		} else {
+			this.optionalMappingsGui?.destroy();
+			this.optionalMappingsGui = undefined;
 		}
 	}
 
@@ -127,7 +159,18 @@ export class GuiHandler {
 		return glyphNames;
 	}
 
-	public setCsvAttributes(csvAttributes: Array<string>) {
-		this.csvAttributes = csvAttributes;
+	protected clearInvalidMappings(): void {
+		for (const key in this.mappings.requiredMappings)
+			if (this.mappings.requiredMappings[key] !== undefined && !this._csvAttributes.includes(<string> this.mappings.requiredMappings[key])) {
+				const controller = this.requiredMappingsGui?.controllers.find((value: Controller) => { return (value.property === key); });
+				if (controller !== undefined) controller.setValue('');
+			}
+
+		for (const key in this.mappings.optionalMappings)
+			if (this.mappings.optionalMappings[key] !== undefined && !this._csvAttributes.includes(<string> this.mappings.optionalMappings[key])) {
+				const controller = this.optionalMappingsGui?.controllers.find((value: Controller) => { return (value.property === key); });
+				if (controller !== undefined) controller.setValue('');
+				delete this.mappings.optionalMappings[key];
+			}
 	}
 }

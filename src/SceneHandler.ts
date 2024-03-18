@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphAtlas, GlyphJson} from './GlyphLoader.ts';
-import {GuiHandler2} from './GuiHandler2.ts';
+import {GuiHandler} from './GuiHandler.ts';
 import {Color} from 'three';
 
 type MeshData = {
@@ -16,7 +16,7 @@ type CSV = Array<Array<string>>;
 
 export class SceneHandler {
 	protected threeHandler: ThreeHandler;
-	public guiHandler: GuiHandler2 | undefined;
+	public guiHandler: GuiHandler | undefined;
 
 	readonly scene: THREE.Scene;
 	protected meshGroup: THREE.Group;
@@ -234,9 +234,6 @@ export class SceneHandler {
 			this.guiHandler.glyphAtlasAxes = this.json.attributes;
 		}
 
-		for (const key in this.variableMapping) {
-			if (key !== 'positionX' && key !== 'positionY' && key !== 'glyphType') delete this.variableMapping[key];
-		}
 		this.originalObjects = glyphAtlas.glyphs;
 		this.sizeNormalizationFactor = 1 / glyphAtlas.largestExtent;
 
@@ -385,7 +382,7 @@ export class SceneHandler {
 
 		for (const variableMappingKey in this.variableMapping) {
 			this.findIndex(variableMappingKey);
-			if (this.variableMapping[variableMappingKey].index === -1) invalidMappings += ('\t' + variableMappingKey + ' -> ' + this.variableMapping[variableMappingKey].name + '\n');
+			if (this.variableMapping[variableMappingKey].index === -1 && this.variableMapping[variableMappingKey].name !== '') invalidMappings += ('\t' + variableMappingKey + ' -> ' + this.variableMapping[variableMappingKey].name + '\n');
 		}
 
 		if (invalidMappings.length !== 0) {
