@@ -3,6 +3,10 @@ import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphLoader} from './GlyphLoader.ts';
 
 type Mappings = {
+	labelSettings: {
+		labelSize: number,
+		labelOffset: number
+	},
 	basicMappings: {
 		size: number | undefined,
 		glyphAtlas: string | undefined
@@ -34,6 +38,7 @@ export class GuiHandler {
 	protected glyphLoader: GlyphLoader;
 
 	protected mainGui: GUI;
+	protected labelSettingsGui: GUI;
 	protected basicMappingsGui: GUI | undefined;
 	protected requiredMappingsGui: GUI | undefined;
 	protected optionalMappingsGui: GUI | undefined;
@@ -44,7 +49,12 @@ export class GuiHandler {
 
 	constructor(threeHandler: ThreeHandler, glyphLoader: GlyphLoader) {
 		this.mainGui = new GUI({title: 'Options'});
+
 		this.mappings = {
+			labelSettings: {
+				labelSize: 0.01,
+				labelOffset: 0.01
+			},
 			basicMappings: {
 				size: 0.5,
 				glyphAtlas: ''
@@ -66,6 +76,14 @@ export class GuiHandler {
 
 		this.threeHandler = threeHandler;
 		this.glyphLoader = glyphLoader;
+
+		this.labelSettingsGui = this.mainGui.addFolder('Label settings');
+		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelSize').min(0.005).max(0.05).onChange((value: number) => {
+			this.threeHandler.sceneHandler.pickingHandler.labelSize = value;
+		});
+		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelOffset').min(0.01).max(0.1).onChange((value: number) => {
+			this.threeHandler.sceneHandler.pickingHandler.labelOffset = value;
+		});
 	}
 
 	public set csvAttributes(value: Array<string>) {

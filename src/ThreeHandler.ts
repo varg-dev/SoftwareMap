@@ -7,7 +7,7 @@ export class ThreeHandler {
 	protected updateRequested: boolean;
 	protected div: HTMLElement;
 	protected renderer: THREE.WebGLRenderer;
-	protected camera: THREE.PerspectiveCamera;
+	readonly camera: THREE.PerspectiveCamera;
 
 	readonly sceneHandler: SceneHandler;
 
@@ -38,18 +38,9 @@ export class ThreeHandler {
 	}
 
 	protected startRendering() {
-		const requestUpdate = () => {
-			if (this.updateRequested) return;
+		this.requestUpdate();
 
-			this.updateRequested = true;
-
-			// lambda to preserve 'this'
-			requestAnimationFrame(() => {this.render();});
-		};
-
-		requestUpdate();
-
-		this.controls.addEventListener('change', requestUpdate);
+		this.controls.addEventListener('change', () => this.requestUpdate());
 
 		window.addEventListener('resize', () => {
 			this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
@@ -60,18 +51,31 @@ export class ThreeHandler {
 			//@ts-expect-error three.js type definitions seem to be broken, this works.
 			this.sceneHandler.scene.dispatchEvent({type: 'resize'});
 
-			requestUpdate();
+			this.requestUpdate();
 		});
 	}
 
 	// Helpers
 
-	public render() {
+	public requestUpdate() {
+		if (this.updateRequested) return;
+
+		this.updateRequested = true;
+
+		// lambda to preserve 'this'
+		requestAnimationFrame(() => this.render());
+	}
+
+	protected render() {
 		this.updateRequested = false;
 
 		this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
 		this.renderer.render(this.sceneHandler.scene, this.camera);
 
 		this.controls.update();
+	}
+
+	public get canvas(): HTMLCanvasElement {
+		return this.renderer.domElement;
 	}
 }
