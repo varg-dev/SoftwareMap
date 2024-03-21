@@ -15,6 +15,7 @@ export class PickingHandler {
 	protected currentLabel: Label | undefined;
 
 	protected _labelOffset: number = 0.01;
+	protected _labelSize: number = 0.01;
 
 	constructor(meshGroup: THREE.Group, sceneHandler: SceneHandler) {
 		this.meshGroup = meshGroup;
@@ -35,18 +36,25 @@ export class PickingHandler {
 	}
 
 	protected handlePointerDown(event: PointerEvent) {
-		if (event.button !== 0) return;
+		if (event.button !== 0 || !event.ctrlKey) return;
 
 		// only ever have one label
 		this.currentLabel?.dispose();
 		this.currentMesh?.clear();
-		this.currentLabel = undefined;
-		this.currentMesh = undefined;
 
 		this.raycaster.setFromCamera(new THREE.Vector2((event.clientX / this.canvas.clientWidth) * 2 - 1, 1 - (event.clientY / this.canvas.clientHeight) * 2), this.camera);
 
 		const picks = this.raycaster.intersectObject(this.meshGroup);
-		if (picks.length === 0) return;
+
+		// no intersections with glyphs exist
+		if (picks.length === 0) {
+			if (this.currentLabel !== undefined) {
+				this.currentLabel = undefined;
+				this.currentMesh = undefined;
+				this.sceneHandler.threeHandler.requestUpdate();
+			}
+			return;
+		}
 		const closestPick = picks[0];
 		const pickedMesh = closestPick.object as THREE.InstancedMesh;
 
@@ -66,8 +74,7 @@ export class PickingHandler {
 		const instanceMatrix = new THREE.Matrix4();
 		pickedMesh.getMatrixAt(picks[0].instanceId as number, instanceMatrix);
 		label.position.setFromMatrixPosition(instanceMatrix);
-		const scale = 0.01;
-		label.scale.set(scale, scale, scale);
+		label.scale.set(this._labelSize, this._labelSize, this._labelSize);
 		label.rotateX(3 * Math.PI / 2);
 		label.alignment = Alignment.Center;
 		label.addTo(pickedMesh);
@@ -89,7 +96,8 @@ export class PickingHandler {
 	}
 
 	public set labelSize(value: number) {
-		this.currentLabel?.scale.set(value, value, value);
+		this._labelSize = value;
+		this.currentLabel?.scale.set(this._labelSize, this._labelSize, this._labelSize);
 		this.sceneHandler.threeHandler.requestUpdate();
 	}
 }
