@@ -47,8 +47,23 @@ export class PickingHandler {
 
 		const picks = this.raycaster.intersectObject(this.meshGroup);
 		if (picks.length === 0) return;
-		const pickedMesh = picks[0].object as THREE.InstancedMesh;
-		const label = new Label('Dummy Text', this.fontFace, new THREE.Color(0xffffff));
+		const closestPick = picks[0];
+		const pickedMesh = closestPick.object as THREE.InstancedMesh;
+
+		console.log(closestPick.point);
+
+		const meshIndex = this.sceneHandler.indexToMeshIdMapper.get(pickedMesh.id);
+		if (closestPick.instanceId === undefined || meshIndex === undefined) return;
+		const csvRow = this.sceneHandler.csv[this.sceneHandler.instancedMeshes[meshIndex].csvRow[closestPick.instanceId]];
+		let labelText = '';
+		for (let i = 0; i < this.sceneHandler.csv[0].length; ++i) {
+			labelText += this.sceneHandler.csv[0][i] + ': ' + csvRow[i];
+
+			// line breaks at the end of the label text seem to make the labeling system put this line break before the last word
+			if (i < this.sceneHandler.csv[0].length - 1)
+				labelText += '\n';
+		}
+		const label = new Label(labelText, this.fontFace, new THREE.Color(0xffffff));
 
 		const instanceMatrix = new THREE.Matrix4();
 		pickedMesh.getMatrixAt(picks[0].instanceId as number, instanceMatrix);

@@ -10,7 +10,8 @@ type MeshData = {
 		mesh: THREE.InstancedMesh,
 		colors: Array<THREE.Color>,
 		positionMatrices: Array<THREE.Matrix4>
-	}>
+	}>,
+	csvRow: Array<number>
 };
 
 type CSV = Array<Array<string>>;
@@ -26,8 +27,9 @@ export class SceneHandler {
 	protected json: GlyphJson | undefined;
 
 	protected originalObjects: Array<THREE.Object3D>;
-	protected instancedMeshes: Array<MeshData>;
+	public instancedMeshes: Array<MeshData>;
 	protected sizeNormalizationFactor: number;
+	public indexToMeshIdMapper: Map<number, number>;
 
 	protected variableMapping: Record<string, { name: string, index: number }>;
 
@@ -48,6 +50,7 @@ export class SceneHandler {
 
 		this.originalObjects = [];
 		this.instancedMeshes = [];
+		this.indexToMeshIdMapper = new Map<number, number>();
 		this.sizeNormalizationFactor = 1;
 
 		this.basicSize = 0.1;
@@ -137,6 +140,9 @@ export class SceneHandler {
 
 			if (positions[meshIndex] === undefined) positions[meshIndex] = [];
 			positions[meshIndex].push(this.normalizeCoordinatesToNDC(new THREE.Vector2(Number(this._csv[csvIndex][xIndex]), Number(this._csv[csvIndex][yIndex]))));
+
+			if (this.instancedMeshes[meshIndex] === undefined) this.instancedMeshes[meshIndex] = {meshes: [], csvRow: []};
+			this.instancedMeshes[meshIndex].csvRow.push(csvIndex);
 		}
 
 		/*
@@ -172,6 +178,7 @@ export class SceneHandler {
 		instancedMesh.receiveShadow = false;
 		instancedMesh.castShadow = true;
 
+		this.indexToMeshIdMapper.set(instancedMesh.id, meshId);
 		const positionMatrices = new Array<THREE.Matrix4>(instanceCounter[meshId]);
 
 		for (let instanceId = 0; instanceId < instanceCounter[meshId]; ++instanceId) {
@@ -182,7 +189,6 @@ export class SceneHandler {
 			positionMatrices[instanceId] = instanceMatrix;
 		}
 
-		if (this.instancedMeshes[meshId] === undefined) this.instancedMeshes[meshId] = {meshes: []};
 		this.instancedMeshes[meshId].meshes.push({mesh: instancedMesh, colors: new Array<Color>(), positionMatrices: positionMatrices});
 		this.meshGroup.add(instancedMesh);
 	}
