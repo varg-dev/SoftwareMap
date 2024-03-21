@@ -56,7 +56,7 @@ export class GuiHandler {
 				labelOffset: 0.01
 			},
 			basicMappings: {
-				size: 0.5,
+				size: 0.1,
 				glyphAtlas: ''
 			},
 			requiredMappings: {
