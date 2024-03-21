@@ -50,8 +50,6 @@ export class PickingHandler {
 		const closestPick = picks[0];
 		const pickedMesh = closestPick.object as THREE.InstancedMesh;
 
-		console.log(closestPick.point);
-
 		const meshIndex = this.sceneHandler.indexToMeshIdMapper.get(pickedMesh.id);
 		if (closestPick.instanceId === undefined || meshIndex === undefined) return;
 		const csvRow = this.sceneHandler.csv[this.sceneHandler.instancedMeshes[meshIndex].csvRow[closestPick.instanceId]];
