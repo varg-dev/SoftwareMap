@@ -36,7 +36,7 @@ export class PickingHandler {
 	}
 
 	protected handlePointerDown(event: PointerEvent) {
-		if (event.button !== 0 || !event.ctrlKey) return;
+		if (event.button !== 0 || !(event.ctrlKey || event.altKey)) return;
 
 		// only ever have one label
 		this.currentLabel?.dispose();
