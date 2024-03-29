@@ -17,7 +17,7 @@ export class ThreeHandler {
 		this.updateRequested = false;
 		this.div = document.getElementById('threeJsDiv') as HTMLElement;
 
-		this.renderer = new THREE.WebGLRenderer({antialias: true});
+		this.renderer = new THREE.WebGLRenderer({antialias: false});
 		this.renderer.shadowMap.enabled = true;
 		this.renderer.shadowMap.type = THREE.PCFShadowMap;
 		this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
@@ -30,7 +30,7 @@ export class ThreeHandler {
 
 		this.sceneHandler = new SceneHandler(this);
 
-		this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneHandler.scene);
+		this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneHandler.scene, false, 4);
 		this.controls.allowRotationBelowGroundPlane = false;
 		this.controls.useBottomOfBoundingBoxAsGroundPlane = false;
 
