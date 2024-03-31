@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import {ThreeHandler} from './ThreeHandler.ts';
 import {GlyphAtlas, GlyphJson} from './GlyphLoader.ts';
 import {GuiHandler} from './GuiHandler.ts';
-import {Color} from 'three';
 import {PickingHandler} from './PickingHandler.ts';
 
 type MeshData = {
@@ -189,7 +188,7 @@ export class SceneHandler {
 			positionMatrices[instanceId] = instanceMatrix;
 		}
 
-		this.instancedMeshes[meshId].meshes.push({mesh: instancedMesh, colors: new Array<Color>(), positionMatrices: positionMatrices});
+		this.instancedMeshes[meshId].meshes.push({mesh: instancedMesh, colors: new Array<THREE.Color>(), positionMatrices: positionMatrices});
 		this.meshGroup.add(instancedMesh);
 	}
 
