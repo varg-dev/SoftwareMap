@@ -1,12 +1,9 @@
 import {parse} from 'csv-parse/browser/esm/sync';
-import {ThreeHandler} from './ThreeHandler.ts';
-import {GlyphLoader} from './GlyphLoader.ts';
-import {GuiHandler} from './GuiHandler.ts';
+import {RenderingManager} from './RenderingManager.ts';
+import {GuiManager} from './GuiManager.ts';
 
-const threeHandler = new ThreeHandler();
-const glyphLoader = new GlyphLoader(threeHandler.sceneHandler);
-const guiHandler = new GuiHandler(threeHandler, glyphLoader);
-threeHandler.sceneHandler.guiHandler = guiHandler;
+const renderingManager = new RenderingManager();
+const guiHandler = new GuiManager(renderingManager);
 
 const fileUpload = document.getElementById('fileUpload') as HTMLInputElement;
 
@@ -22,5 +19,5 @@ async function checkAndLoadCsv() {
 	const csv = await parse(await file.text());
 	guiHandler.csvAttributes = csv[0];
 	guiHandler.componentStatus = { basicMappings: true };
-	await threeHandler.sceneHandler.setCsv(csv);
+	renderingManager.sceneManager.csv = csv;
 }

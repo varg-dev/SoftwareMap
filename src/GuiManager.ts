@@ -1,22 +1,39 @@
 import GUI, {Controller} from 'lil-gui';
-import {ThreeHandler} from './ThreeHandler.ts';
-import {GlyphLoader} from './GlyphLoader.ts';
+import {RenderingManager} from './RenderingManager.ts';
+import {SceneManager} from "./SceneManager.ts";
 
-type Mappings = {
+export type Mappings = {
 	labelSettings: {
 		labelSize: number,
 		labelOffset: number
 	},
 	basicMappings: {
 		size: number | undefined,
-		glyphAtlas: string | undefined
+		glyphAtlas: string
 	},
 	requiredMappings: {
-		positionX: string | undefined,
-		positionY: string | undefined,
-		glyphType: string | undefined
-	} & Record<string, string | undefined>,
+		positionX: string,
+		positionY: string,
+		glyphType: string
+	},
 	optionalMappings: Record<string, string>
+};
+
+export type MappingsUpdate = {
+	labelSettings?: {
+		labelSize?: boolean,
+		labelOffset?: boolean
+	},
+	basicMappings?: {
+		size?: boolean,
+		glyphAtlas?: boolean
+	},
+	requiredMappings?: {
+		positionX?: boolean,
+		positionY?: boolean,
+		glyphType?: boolean
+	},
+	optionalMappings?: string
 };
 
 export type ComponentStatus = {
@@ -31,11 +48,11 @@ export type ComponentStatusUpdate = {
 	optionalMappings?: boolean
 };
 
-export class GuiHandler {
+export class GuiManager {
 	protected mappings: Mappings;
 
-	protected threeHandler: ThreeHandler;
-	protected glyphLoader: GlyphLoader;
+	protected renderingManager: RenderingManager;
+	protected sceneManager: SceneManager;
 
 	protected mainGui: GUI;
 	protected labelSettingsGui: GUI;
@@ -47,7 +64,7 @@ export class GuiHandler {
 	protected _glyphAtlasAxes: Array<string>;
 	protected _componentStatus: ComponentStatus;
 
-	constructor(threeHandler: ThreeHandler, glyphLoader: GlyphLoader) {
+	constructor(renderingManager: RenderingManager) {
 		this.mainGui = new GUI({title: 'Options'});
 
 		this.mappings = {
@@ -74,15 +91,17 @@ export class GuiHandler {
 		this._csvAttributes = [];
 		this._glyphAtlasAxes = [];
 
-		this.threeHandler = threeHandler;
-		this.glyphLoader = glyphLoader;
+		this.renderingManager = renderingManager;
+		this.sceneManager = this.renderingManager.sceneManager;
+		// (Intended) shallow-copy, will reference the same memory!
+		this.sceneManager.mappings = this.mappings;
 
 		this.labelSettingsGui = this.mainGui.addFolder('Label settings');
-		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelSize').min(0.005).max(0.05).onChange((value: number) => {
-			this.threeHandler.sceneHandler.pickingHandler.labelSize = value;
+		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelSize').min(0.005).max(0.05).onChange(async () => {
+			await this.sceneManager.update({ labelSettings: { labelSize: true } });
 		});
-		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelOffset').min(0.01).max(0.1).onChange((value: number) => {
-			this.threeHandler.sceneHandler.pickingHandler.labelOffset = value;
+		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelOffset').min(0.01).max(0.1).onChange(async () => {
+			await this.sceneManager.update( { labelSettings: { labelOffset: true } } );
 		});
 	}
 
@@ -125,9 +144,9 @@ export class GuiHandler {
 			this.basicMappingsGui = this.mainGui.addFolder('Basic mappings');
 
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'size').name('Size multiplier').min(0.01).max(1)
-				.onChange((value: number) => { this.threeHandler.sceneHandler.setBasicSize(value); });
+				.onChange(async () => { await this.sceneManager.update( { basicMappings: { size: true } } ); });
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'glyphAtlas', this.getGlyphAtlasNames()).name('Glyph atlas')
-				.onChange( async (value: string) => { await this.glyphLoader.setGlyphAtlas(value + '.json'); });
+				.onChange( async () => { await this.sceneManager.update( { basicMappings: { glyphAtlas: true } } ); this.componentStatus = { requiredMappings: true }; });
 		} else {
 			this.basicMappingsGui?.destroy();
 			this.basicMappingsGui = undefined;
@@ -139,11 +158,11 @@ export class GuiHandler {
 			this.requiredMappingsGui = this.mainGui.addFolder('Required mappings');
 
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionX', this._csvAttributes).name('x position')
-				.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping('positionX', value, true); });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionX: true } } ) });
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionY', this._csvAttributes).name('y position')
-				.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping('positionY', value, true); });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionY: true } } ) });
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'glyphType', this._csvAttributes).name('Glyph type')
-				.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping('glyphType', value, true); });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { glyphType: true } } ) });
 		} else {
 			this.requiredMappingsGui?.destroy();
 			this.requiredMappingsGui = undefined;
@@ -156,7 +175,7 @@ export class GuiHandler {
 
 			for (const axis of this._glyphAtlasAxes) {
 				this.optionalMappingsGui.add(this.mappings.optionalMappings, axis, this._csvAttributes)
-					.onChange(async (value: string) => { await this.threeHandler.sceneHandler.setMapping(axis, value, true); });
+					.onChange(async () => { await this.sceneManager.update( { optionalMappings: axis } ) });
 			}
 		} else {
 			this.optionalMappingsGui?.destroy();
@@ -178,17 +197,19 @@ export class GuiHandler {
 	}
 
 	protected clearInvalidMappings(): void {
-		for (const key in this.mappings.requiredMappings)
-			if (this.mappings.requiredMappings[key] !== undefined && !this._csvAttributes.includes(<string> this.mappings.requiredMappings[key])) {
+		for (const [key, value] of Object.entries(this.mappings.requiredMappings)) {
+			if (value !== undefined && !this._csvAttributes.includes(value)) {
 				const controller = this.requiredMappingsGui?.controllers.find((value: Controller) => { return (value.property === key); });
 				if (controller !== undefined) controller.setValue('');
 			}
+		}
 
-		for (const key in this.mappings.optionalMappings)
-			if (this.mappings.optionalMappings[key] !== undefined && !this._csvAttributes.includes(<string> this.mappings.optionalMappings[key])) {
+		for (const [key, value] of Object.entries(this.mappings.optionalMappings)) {
+			if (!this._csvAttributes.includes(value)) {
 				const controller = this.optionalMappingsGui?.controllers.find((value: Controller) => { return (value.property === key); });
 				if (controller !== undefined) controller.setValue('');
 				delete this.mappings.optionalMappings[key];
 			}
+		}
 	}
 }

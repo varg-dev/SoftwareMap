@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 //import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WorldInHandControls } from '@world-in-hand-controls/threejs-world-in-hand';
-import {SceneHandler} from './SceneHandler.ts';
+import {SceneManager} from "./SceneManager.ts";
 
-export class ThreeHandler {
+export class RenderingManager {
 	protected updateRequested: boolean;
 	protected div: HTMLElement;
 	protected renderer: THREE.WebGLRenderer;
 	readonly camera: THREE.PerspectiveCamera;
 
-	readonly sceneHandler: SceneHandler;
+	readonly sceneManager: SceneManager;
 
 	protected controls!: WorldInHandControls;
 
@@ -28,9 +28,9 @@ export class ThreeHandler {
 		this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.01, 1000);
 		this.camera.position.set(0, 0.5, 1.35);
 
-		this.sceneHandler = new SceneHandler(this);
+		this.sceneManager = new SceneManager();
 
-		this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneHandler.scene, false, 4);
+		this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneManager.scene, false, 4);
 		this.controls.allowRotationBelowGroundPlane = false;
 		this.controls.useBottomOfBoundingBoxAsGroundPlane = false;
 
@@ -49,7 +49,7 @@ export class ThreeHandler {
 			this.camera.updateProjectionMatrix();
 
 			//@ts-expect-error three.js type definitions seem to be broken, this works.
-			this.sceneHandler.scene.dispatchEvent({type: 'resize'});
+			this.sceneManager.scene.dispatchEvent({type: 'resize'});
 
 			this.requestUpdate();
 		});
@@ -70,7 +70,7 @@ export class ThreeHandler {
 		this.updateRequested = false;
 
 		this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
-		this.renderer.render(this.sceneHandler.scene, this.camera);
+		this.renderer.render(this.sceneManager.scene, this.camera);
 
 		this.controls.update();
 	}

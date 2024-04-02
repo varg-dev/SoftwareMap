@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import {ThreeHandler} from './ThreeHandler.ts';
+import {RenderingManager} from './RenderingManager.ts';
 import {GlyphAtlas, GlyphJson} from './GlyphLoader.ts';
-import {GuiHandler} from './GuiHandler.ts';
+import {GuiManager} from './GuiManager.ts';
 import {PickingHandler} from './PickingHandler.ts';
 
 type MeshData = {
@@ -16,8 +16,8 @@ type MeshData = {
 type CSV = Array<Array<string>>;
 
 export class SceneHandler {
-	readonly threeHandler: ThreeHandler;
-	public guiHandler: GuiHandler | undefined;
+	readonly threeHandler: RenderingManager;
+	public guiHandler: GuiManager | undefined;
 	public pickingHandler: PickingHandler;
 
 	readonly scene: THREE.Scene;
@@ -39,7 +39,7 @@ export class SceneHandler {
 	protected csvMax: THREE.Vector2;
 	protected distinctValues: Array<number>;
 
-	constructor(threeHandler: ThreeHandler) {
+	constructor(threeHandler: RenderingManager) {
 		this.threeHandler = threeHandler;
 
 		this._csv = [];

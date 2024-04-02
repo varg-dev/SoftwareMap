@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {SceneHandler} from './SceneHandler.ts';
 
 export type Glyph = {
 	baseModel: string,
 	name: string,
-	variants: Array<{name: string} & Record<string, number | string>>
+	variants: Array<{name: string} & Record<string, number>>
 }
 
 export type GlyphJson = {
@@ -21,13 +20,8 @@ export type GlyphAtlas = {
 }
 
 export class GlyphLoader {
-	protected _sceneHandler: SceneHandler;
 
-	constructor(sceneHandler: SceneHandler) {
-		this._sceneHandler = sceneHandler;
-	}
-
-	public async setGlyphAtlas(path: string): Promise<void> {
+	public async getGlyphAtlas(path: string): Promise<GlyphAtlas | null> {
 		const json = (await (await fetch(path)).json()) as GlyphJson;
 
 		const gltfRecord = import.meta.glob('/public/*.glb');
@@ -37,14 +31,14 @@ export class GlyphLoader {
 		}
 		if (!gltfNames.includes(json.modelFile)) {
 			console.error('The gltf specified in the chosen json does not exist!');
-			return;
+			return null;
 		}
 
 		this.checkAndReplaceInvalidCharacters(json);
 
 		const gltf = await this.loadGLTF(json);
 
-		await this._sceneHandler.setGlyphAtlas({ json: json, glyphs: gltf.glyphs, largestExtent: gltf.largestExtent });
+		return { json: json, glyphs: gltf.glyphs, largestExtent: gltf.largestExtent };
 	}
 
 	protected async loadGLTF(json: GlyphJson): Promise<{ glyphs: Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>, largestExtent: number }> {
