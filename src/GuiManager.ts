@@ -1,6 +1,6 @@
 import GUI, {Controller} from 'lil-gui';
 import {RenderingManager} from './RenderingManager.ts';
-import {SceneManager} from "./SceneManager.ts";
+import {SceneManager} from './SceneManager.ts';
 
 export type Mappings = {
 	labelSettings: {
@@ -8,7 +8,7 @@ export type Mappings = {
 		labelOffset: number
 	},
 	basicMappings: {
-		size: number | undefined,
+		size: number,
 		glyphAtlas: string
 	},
 	requiredMappings: {
@@ -158,11 +158,11 @@ export class GuiManager {
 			this.requiredMappingsGui = this.mainGui.addFolder('Required mappings');
 
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionX', this._csvAttributes).name('x position')
-				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionX: true } } ) });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionX: true } } ); });
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionY', this._csvAttributes).name('y position')
-				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionY: true } } ) });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionY: true } } ); });
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'glyphType', this._csvAttributes).name('Glyph type')
-				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { glyphType: true } } ) });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { glyphType: true } } ); });
 		} else {
 			this.requiredMappingsGui?.destroy();
 			this.requiredMappingsGui = undefined;
@@ -175,7 +175,7 @@ export class GuiManager {
 
 			for (const axis of this._glyphAtlasAxes) {
 				this.optionalMappingsGui.add(this.mappings.optionalMappings, axis, this._csvAttributes)
-					.onChange(async () => { await this.sceneManager.update( { optionalMappings: axis } ) });
+					.onChange(async () => { await this.sceneManager.update( { optionalMappings: axis } ); });
 			}
 		} else {
 			this.optionalMappingsGui?.destroy();

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 //import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WorldInHandControls } from '@world-in-hand-controls/threejs-world-in-hand';
-import {SceneManager} from "./SceneManager.ts";
+import {SceneManager} from './SceneManager.ts';
 
 export class RenderingManager {
 	protected updateRequested: boolean;
@@ -28,7 +28,7 @@ export class RenderingManager {
 		this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.01, 1000);
 		this.camera.position.set(0, 0.5, 1.35);
 
-		this.sceneManager = new SceneManager();
+		this.sceneManager = new SceneManager(this);
 
 		this.controls = new WorldInHandControls(this.camera, this.renderer.domElement, this.renderer, this.sceneManager.scene, false, 4);
 		this.controls.allowRotationBelowGroundPlane = false;
