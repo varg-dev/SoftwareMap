@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {GlyphAtlas, GlyphLoader} from './GlyphLoader.ts';
 import {type Mappings, MappingsUpdate} from './GuiManager.ts';
-import {Object3D} from 'three';
 import {RenderingManager} from './RenderingManager.ts';
 
 type CSV = Array<Array<string>>;
@@ -23,7 +22,8 @@ export class SceneManager {
 	protected glyphAtlas: GlyphAtlas | undefined;
 	protected glyphLoader: GlyphLoader;
 	protected glyphToCsvMapping: Array<{ glyphIndex: number, csvRow: number }> | undefined;
-	protected instancedGlyphs: Array<{ positionAttributes: THREE.BufferAttribute, meshes: Array<THREE.Mesh> }> | undefined;
+	protected glyphCount: Array<number> | undefined;
+	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
 
 	protected _mappings: Mappings | undefined;
 	protected xAndYBounds: { min: THREE.Vector2, max: THREE.Vector2 } | undefined;
@@ -79,32 +79,93 @@ export class SceneManager {
 	}
 
 	protected createInstancedMeshes(): void {
-		if (!this.sceneCanBeDrawn() || this.glyphToCsvMapping === undefined) return;
+		if (!this.sceneCanBeDrawn() || this.glyphToCsvMapping === undefined || this.glyphCount === undefined) return;
 		if (this.xAndYBounds === undefined) this.findAttributeBounds();
 
 		this.glyphGroup.clear();
 
 		const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
+		this.instancedGlyphs = [];
+		for (const [index, count] of this.glyphCount.entries()) {
+			if (count <= 0) continue;
 
-		for (const glyphMapping of this.glyphToCsvMapping) {
-			const glyph = this.glyphAtlas!.glyphs[glyphMapping.glyphIndex].clone(true);
-			const position = this.calculatePosition(this._csv!.csv[glyphMapping.csvRow]);
-			glyph.position.set(position.x, 0, position.y);
-			glyph.scale.set(scale, scale, scale);
-			this.glyphGroup.add(glyph);
+			const glyph = this.glyphAtlas!.glyphs[index];
+
+			const meshes = new Array<THREE.Mesh>();
+			const positions = new Array<THREE.InstancedBufferAttribute>();
+
+			if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions); });
+			else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions);
+
+			this.instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
+
+			for (const mesh of meshes) {
+				this.glyphGroup.add(mesh);
+				mesh.scale.set(scale, scale, scale);
+			}
 		}
 
 		this.renderingManager.requestUpdate();
 	}
 
+	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>): void {
+		const geometry = new THREE.InstancedBufferGeometry();
+		geometry.index = mesh.geometry.index;
+		geometry.attributes = mesh.geometry.attributes;
+
+		geometry.instanceCount = count;
+		const positionOffsets = new Array<number>(count * 2);
+
+		for (const [index, mapping] of this.glyphToCsvMapping!.entries()) {
+			if (mapping.glyphIndex !== glyphIndex) continue;
+
+			const position = this.calculatePosition(this._csv!.csv[mapping.csvRow]);
+			positionOffsets[index * 2] = position.x;
+			positionOffsets[index * 2 + 1] = position.y;
+		}
+
+		const positionAttribute = new THREE.InstancedBufferAttribute(new Float32Array(positionOffsets), 2);
+
+		geometry.setAttribute('positionOffset', positionAttribute);
+
+		const insertionPoint = '#include <project_vertex>';
+		const shaderChunkInsertionPoint = 'mvPosition = modelViewMatrix * mvPosition;\n';
+
+		// @ts-expect-error The string used to index should only be a valid one (if insertionPoint is set correctly)
+		let shaderChunk: string = THREE.ShaderChunk[insertionPoint.substring(insertionPoint.indexOf('<') + 1, insertionPoint.indexOf('>'))];
+
+		const material = (mesh.material as THREE.Material).clone();
+		material.onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
+			shaderChunk = shaderChunk.substring(0, shaderChunk.indexOf(shaderChunkInsertionPoint) + shaderChunkInsertionPoint.length)
+				+ 'mvPosition += viewMatrix * vec4(positionOffset.x, 0., positionOffset.y, 0.);\n'
+				+ shaderChunk.substring(shaderChunk.indexOf(shaderChunkInsertionPoint) + shaderChunkInsertionPoint.length);
+
+			let vertexShader = parameters.vertexShader;
+
+			vertexShader = vertexShader.substring(0, vertexShader.indexOf('varying'))
+				+ 'attribute vec2 positionOffset;\n'
+				+ vertexShader.substring(vertexShader.indexOf('varying'), vertexShader.indexOf(insertionPoint))
+				+ shaderChunk
+				+ vertexShader.substring(vertexShader.indexOf(insertionPoint) + insertionPoint.length);
+
+			parameters.vertexShader = vertexShader;
+		};
+
+		meshes.push(new THREE.Mesh(geometry, material));
+		positions.push(positionAttribute);
+	}
+
 	protected calculateGlyphIndices(): void {
 		if (!this.sceneCanBeDrawn()) return;
 
-		this.glyphToCsvMapping = [];
+		this.glyphToCsvMapping = new Array(this._csv!.csv.length - 1);
+		this.glyphCount = new Array<number>(this.glyphAtlas!.glyphs.length).fill(0);
 
 		for (const [index, row] of this._csv!.csv.entries()) {
 			if (index === 0) continue;
-			this.glyphToCsvMapping.push({ glyphIndex: this.calculateGlyphIndex(row), csvRow: index });
+			const glyphIndex = this.calculateGlyphIndex(row);
+			this.glyphToCsvMapping[index - 1] = { glyphIndex: glyphIndex, csvRow: index };
+			++this.glyphCount[glyphIndex];
 		}
 	}
 
@@ -158,7 +219,7 @@ export class SceneManager {
 			selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
 		}
 
-		return this.glyphAtlas!.glyphs.findIndex((value: Object3D) => { return selectedGlyphName === value.name; } );
+		return this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return selectedGlyphName === value.name; } );
 	}
 
 	protected findAttributeBounds(): void {
