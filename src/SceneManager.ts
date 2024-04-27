@@ -50,7 +50,6 @@ export class SceneManager {
 		const spotLight = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 2.1, 0, 0);
 		spotLight.castShadow = true;
 		const shadowMapResolution = 2 ** 13;
-		console.log(shadowMapResolution);
 		spotLight.shadow.mapSize = new THREE.Vector2(shadowMapResolution, shadowMapResolution);
 		spotLight.position.set(-2, 2, 2);
 		spotLight.lookAt(new THREE.Vector3(0, 0, 0));
