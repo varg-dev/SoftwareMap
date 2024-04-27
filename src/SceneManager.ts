@@ -84,7 +84,6 @@ export class SceneManager {
 
 		this.glyphGroup.clear();
 
-		const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
 		this.instancedGlyphs = [];
 		for (const [index, count] of this.glyphCount.entries()) {
 			if (count <= 0) continue;
@@ -101,7 +100,6 @@ export class SceneManager {
 
 			for (const mesh of meshes) {
 				this.glyphGroup.add(mesh);
-				mesh.scale.set(scale, scale, scale);
 			}
 		}
 
@@ -112,8 +110,11 @@ export class SceneManager {
 		const geometry = new THREE.InstancedBufferGeometry();
 		geometry.index = mesh.geometry.index;
 		geometry.attributes = mesh.geometry.attributes;
-
 		geometry.instanceCount = count;
+
+		/*
+		Create position offset buffer
+		 */
 		const positionOffsets = new Array<number>(count * 2);
 
 		for (const [index, mapping] of this.glyphToCsvMapping!.entries()) {
@@ -128,35 +129,74 @@ export class SceneManager {
 
 		geometry.setAttribute('positionOffset', positionAttribute);
 
-		const insertionPoint = '#include <project_vertex>';
-		const shaderChunkInsertionPoint = 'mvPosition = modelViewMatrix * mvPosition;\n';
-
-		// @ts-expect-error The string used to index should only be a valid one (if insertionPoint is set correctly)
-		let shaderChunk: string = THREE.ShaderChunk[insertionPoint.substring(insertionPoint.indexOf('<') + 1, insertionPoint.indexOf('>'))];
-
 		const material = (mesh.material as THREE.Material).clone();
-		material.onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
-			shaderChunk = shaderChunk.substring(0, shaderChunk.indexOf(shaderChunkInsertionPoint) + shaderChunkInsertionPoint.length)
-				+ 'mvPosition += viewMatrix * vec4(positionOffset.x, 0., positionOffset.y, 0.);\n'
-				+ shaderChunk.substring(shaderChunk.indexOf(shaderChunkInsertionPoint) + shaderChunkInsertionPoint.length);
-
-			let vertexShader = parameters.vertexShader;
-
-			vertexShader = vertexShader.substring(0, vertexShader.indexOf('varying'))
-				+ 'attribute vec2 positionOffset;\n'
-				+ vertexShader.substring(vertexShader.indexOf('varying'), vertexShader.indexOf(insertionPoint))
-				+ shaderChunk
-				+ vertexShader.substring(vertexShader.indexOf(insertionPoint) + insertionPoint.length);
-
-			parameters.vertexShader = vertexShader;
-		};
+		const depthMaterial = new THREE.MeshDepthMaterial();
+		const distanceMaterial = new THREE.MeshDistanceMaterial();
 
 		const instancedMesh = new THREE.Mesh(geometry, material);
 		// three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
 		instancedMesh.frustumCulled = false;
+		instancedMesh.castShadow = true;
+
+		const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
+		instancedMesh.scale.set(scale, scale, scale);
+
+		/*
+		Add positional offset to materials
+		 */
+
+		const onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
+			parameters.uniforms['modelMatrixInverse'] = { value: instancedMesh.matrixWorld.clone().invert() };
+
+			parameters.vertexShader = this.addPositionOffsetToShader(parameters.vertexShader);
+
+			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
+		};
+
+		material.onBeforeCompile = onBeforeCompile;
+		depthMaterial.onBeforeCompile = onBeforeCompile;
+		distanceMaterial.onBeforeCompile = onBeforeCompile;
+
+		instancedMesh.customDistanceMaterial = distanceMaterial;
+		instancedMesh.customDepthMaterial = depthMaterial;
 
 		meshes.push(instancedMesh);
 		positions.push(positionAttribute);
+	}
+
+	/**
+	 * Inserts the given code into the given shader chunk AFTER the given insertion point string.
+	 * @param shaderChunkName The name of the shader chunk to insert into
+	 * @param insertionPoint A string contained in the shader chunk directly following which the code will be inserted
+	 * @param code The GLSL code to insert into the shader chunk
+	 * @returns The given shader chunk augmented by the given code
+	 * @protected
+	 */
+	protected insertCodeIntoShaderChunk(shaderChunkName: keyof typeof THREE.ShaderChunk, insertionPoint: string, code: string): string {
+		const shaderChunk: string = THREE.ShaderChunk[shaderChunkName];
+
+		return shaderChunk.substring(0, shaderChunk.indexOf(insertionPoint) + insertionPoint.length)
+			+ code
+			+ shaderChunk.substring(shaderChunk.indexOf(insertionPoint) + insertionPoint.length);
+	}
+
+	/**
+	 * Adds code enabling the position offset passed via attribute in the given GLSL shader.
+	 * @param shader The shader to augment
+	 * @protected
+	 */
+	protected addPositionOffsetToShader(shader: string): string {
+		const insertionPoint = '#include <begin_vertex>';
+
+		const shaderChunk = this.insertCodeIntoShaderChunk('begin_vertex',
+			'vec3 transformed = vec3( position );\n',
+			'vec4 offset = modelMatrixInverse * vec4(positionOffset.x, 0., positionOffset.y, 0.);\ntransformed += offset.xyz;\n');
+
+		return 'attribute vec2 positionOffset;\n'
+			+ 'uniform mat4 modelMatrixInverse;\n'
+			+ shader.substring(0, shader.indexOf(insertionPoint))
+			+ shaderChunk
+			+ shader.substring(shader.indexOf(insertionPoint) + insertionPoint.length);
 	}
 
 	protected calculateGlyphIndices(): void {
