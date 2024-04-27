@@ -19,13 +19,13 @@ export class RenderingManager {
 
 		this.renderer = new THREE.WebGLRenderer({antialias: false});
 		this.renderer.shadowMap.enabled = true;
-		this.renderer.shadowMap.type = THREE.PCFShadowMap;
+		this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 		this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
 		this.renderer.setPixelRatio(window.devicePixelRatio);
 
 		this.div.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(75, this.div.clientWidth / this.div.clientHeight, 0.01, 20);
 		this.camera.position.set(0, 0.5, 1.35);
 
 		this.sceneManager = new SceneManager(this);

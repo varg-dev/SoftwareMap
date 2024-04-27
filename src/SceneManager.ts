@@ -47,11 +47,16 @@ export class SceneManager {
 
 		// Lighting
 		this.staticElements.add(new THREE.AmbientLight(0xdddddd));
-		const pointLight = new THREE.PointLight(0xffffff, 1, 0, 0);
-		pointLight.castShadow = true;
-		pointLight.shadow.mapSize = new THREE.Vector2(4096, 4096);
-		pointLight.position.set(-0.5, 2, 1);
-		this.staticElements.add(pointLight);
+		const spotLight = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 2.1, 0, 0);
+		spotLight.castShadow = true;
+		const shadowMapResolution = 2 ** 13;
+		console.log(shadowMapResolution);
+		spotLight.shadow.mapSize = new THREE.Vector2(shadowMapResolution, shadowMapResolution);
+		spotLight.position.set(-2, 2, 2);
+		spotLight.lookAt(new THREE.Vector3(0, 0, 0));
+		spotLight.shadow.camera.near = 0.01;
+		spotLight.shadow.camera.far = 10;
+		this.staticElements.add(spotLight);
 
 		// Grid
 		const plane = new THREE.Mesh(
