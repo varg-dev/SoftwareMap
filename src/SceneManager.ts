@@ -151,7 +151,11 @@ export class SceneManager {
 			parameters.vertexShader = vertexShader;
 		};
 
-		meshes.push(new THREE.Mesh(geometry, material));
+		const instancedMesh = new THREE.Mesh(geometry, material);
+		// three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
+		instancedMesh.frustumCulled = false;
+
+		meshes.push(instancedMesh);
 		positions.push(positionAttribute);
 	}
 
