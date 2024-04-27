@@ -121,12 +121,14 @@ export class SceneManager {
 		 */
 		const positionOffsets = new Array<number>(count * 2);
 
-		for (const [index, mapping] of this.glyphToCsvMapping!.entries()) {
+		let arrayIndex = 0;
+		for (const mapping of this.glyphToCsvMapping!) {
 			if (mapping.glyphIndex !== glyphIndex) continue;
 
 			const position = this.calculatePosition(this._csv!.csv[mapping.csvRow]);
-			positionOffsets[index * 2] = position.x;
-			positionOffsets[index * 2 + 1] = position.y;
+			positionOffsets[arrayIndex * 2] = position.x;
+			positionOffsets[arrayIndex * 2 + 1] = position.y;
+			++arrayIndex;
 		}
 
 		const positionAttribute = new THREE.InstancedBufferAttribute(new Float32Array(positionOffsets), 2);
