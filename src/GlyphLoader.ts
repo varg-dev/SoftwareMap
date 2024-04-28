@@ -4,7 +4,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 export type Glyph = {
 	baseModel: string,
 	name: string,
-	variants: Array<{name: string} & Record<string, number>>
+	variants: Array<{name: Array<string>} & Record<string, number>>
 }
 
 export type GlyphJson = {
@@ -23,6 +23,13 @@ export class GlyphLoader {
 
 	public async getGlyphAtlas(path: string): Promise<GlyphAtlas | null> {
 		const json = (await (await fetch(path)).json()) as GlyphJson;
+
+		// Convert non-LoD glyph atlases into a compatible format, expect a warning here
+		for (const type of json.types) {
+			for (const variant of type.variants) {
+				if (!(variant.name instanceof Array)) variant.name = [variant.name];
+			}
+		}
 
 		const gltfRecord = import.meta.glob('/public/*.glb');
 		const gltfNames = new Array<string>;
@@ -66,7 +73,7 @@ export class GlyphLoader {
 
 					if (type.variants) {
 						for (const variant of type.variants) {
-							if (variant.name === object.name) {
+							if (variant.name.includes(object.name)) {
 								nameExists = true;
 								break outerLoop;
 							}
@@ -108,9 +115,11 @@ export class GlyphLoader {
 
 			if (json.types[i].variants !== undefined) {
 				for (let j = 0; j < json.types[i].variants.length; ++j) {
-					if (includesInvalid(json.types[i].variants[j].name as string)) {
-						includesInvalidChars = true;
-						json.types[i].variants[j].name = THREE.PropertyBinding.sanitizeNodeName(json.types[i].variants[j].name);
+					for (let k = 0; k < json.types[i].variants[j].name.length; k++) {
+						if (includesInvalid(json.types[i].variants[j].name[k])) {
+							includesInvalidChars = true;
+							(json.types[i].variants[j].name as Array<string>)[k] = THREE.PropertyBinding.sanitizeNodeName(json.types[i].variants[j].name[k]);
+						}
 					}
 				}
 			}

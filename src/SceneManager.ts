@@ -21,7 +21,7 @@ export class SceneManager {
 
 	protected glyphAtlas: GlyphAtlas | undefined;
 	protected glyphLoader: GlyphLoader;
-	protected glyphToCsvMapping: Array<{ glyphIndex: number, csvRow: number }> | undefined;
+	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
 	protected glyphCount: Array<number> | undefined;
 	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
 
@@ -78,7 +78,7 @@ export class SceneManager {
 		if (this.glyphAtlas === undefined) return;
 		if (this._mappings !== undefined) this.findAttributeBounds();
 
-		this.calculateGlyphIndices();
+		this.calculateIndicesForGlyphs();
 		this.createInstancedMeshes();
 	}
 
@@ -123,7 +123,7 @@ export class SceneManager {
 
 		let arrayIndex = 0;
 		for (const mapping of this.glyphToCsvMapping!) {
-			if (mapping.glyphIndex !== glyphIndex) continue;
+			if (!mapping.glyphIndices.includes(glyphIndex)) continue;
 
 			const position = this.calculatePosition(this._csv!.csv[mapping.csvRow]);
 			positionOffsets[arrayIndex * 2] = position.x;
@@ -205,7 +205,7 @@ export class SceneManager {
 			+ shader.substring(shader.indexOf(insertionPoint) + insertionPoint.length);
 	}
 
-	protected calculateGlyphIndices(): void {
+	protected calculateIndicesForGlyphs(): void {
 		if (!this.sceneCanBeDrawn()) return;
 
 		this.glyphToCsvMapping = new Array(this._csv!.csv.length - 1);
@@ -213,19 +213,20 @@ export class SceneManager {
 
 		for (const [index, row] of this._csv!.csv.entries()) {
 			if (index === 0) continue;
-			const glyphIndex = this.calculateGlyphIndex(row);
-			this.glyphToCsvMapping[index - 1] = { glyphIndex: glyphIndex, csvRow: index };
-			++this.glyphCount[glyphIndex];
+			const glyphIndices = this.calculateIndicesForGlyph(row);
+			if (glyphIndices == null) continue;
+			this.glyphToCsvMapping[index - 1] = { glyphIndices: glyphIndices, csvRow: index };
+			for (const index of glyphIndices) ++this.glyphCount[index];
 		}
 	}
 
-	protected calculateGlyphIndex(csvRow: Array<string>): number {
+	protected calculateIndicesForGlyph(csvRow: Array<string>): Array<number> | null {
 		const glyphTypeSelectionColumn = this._csv!.csv[0].indexOf(this._mappings!.requiredMappings.glyphType!);
 		let glyphTypeSelectionValue = Number(csvRow[glyphTypeSelectionColumn]);
 
 		if (glyphTypeSelectionValue === undefined) {
 			console.error('The column selected for glyphType (' + this._mappings!.requiredMappings.glyphType! + ') contains at least one value that cannot be casted to a number: ' + csvRow[glyphTypeSelectionColumn]);
-			return -1;
+			return null;
 		}
 		if (glyphTypeSelectionValue !== Math.round(glyphTypeSelectionValue)) {
 			console.warn('The value given as glyphType is not integer (' + glyphTypeSelectionValue + '). Because of this, the value has been rounded.');
@@ -260,16 +261,22 @@ export class SceneManager {
 			if (variantIsValid) largestValidVariantIndex = index;
 		}
 
-		let selectedGlyphName = '';
+		let selectedGlyphName = new Array<string>();
 
 		if (largestValidVariantIndex === -1) {
 			console.warn('No valid variant could be found for the current row ' + csvRow + '. The base model of the selected type will be used.');
-			selectedGlyphName = glyphType.baseModel;
+			selectedGlyphName.push(glyphType.baseModel);
 		} else {
 			selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
 		}
 
-		return this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return selectedGlyphName === value.name; } );
+		//return this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return selectedGlyphName === value.name; } );
+
+		let indices = new Array<number>();
+		for (const name of selectedGlyphName) {
+			indices.push(this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return name === value.name; } ));
+		}
+		return indices;
 	}
 
 	protected findAttributeBounds(): void {
@@ -319,7 +326,7 @@ export class SceneManager {
 
 		if (this._csv !== undefined) this.findAttributeBounds();
 
-		this.calculateGlyphIndices();
+		this.calculateIndicesForGlyphs();
 		this.createInstancedMeshes();
 	}
 
@@ -338,18 +345,18 @@ export class SceneManager {
 				const possibleGlyphAtlas = await this.glyphLoader.getGlyphAtlas(this._mappings?.basicMappings.glyphAtlas + '.json');
 				if (possibleGlyphAtlas !== null) this.glyphAtlas = possibleGlyphAtlas;
 			}
-			this.calculateGlyphIndices();
+			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
 		}
 		if (value.requiredMappings?.positionX || value.requiredMappings?.positionY) {
 			this.createInstancedMeshes();
 		}
 		if (value.requiredMappings?.glyphType) {
-			this.calculateGlyphIndices();
+			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
 		}
 		if (value.optionalMappings !== undefined) {
-			this.calculateGlyphIndices();
+			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
 		}
 	}

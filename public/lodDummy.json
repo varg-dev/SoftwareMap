@@ -7,24 +7,13 @@
       "baseModel": "Pawn-1.005",
       "variants": [
         {
-          "name": "Pawn-1.005",
-          "lod": 0
-        },
-        {
-          "name": "Pawn-1.004",
-          "lod": 1
-        },
-        {
-          "name": "Pawn-1.003",
-          "lod": 2
-        },
-        {
-          "name": "Pawn-1.002",
-          "lod": 3
-        },
-        {
-          "name": "Pawn-1.001",
-          "lod": 4
+          "name": [
+            "Pawn-1.005",
+            "Pawn-1.004",
+            "Pawn-1.003",
+            "Pawn-1.002",
+            "Pawn-1.001"
+          ]
         }
       ]
     }
