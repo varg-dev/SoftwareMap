@@ -172,9 +172,6 @@ export class SceneManager {
 
 		const onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			parameters.uniforms['modelMatrixInverse'] = { value: instancedMesh.matrixWorld.clone().invert() };
-			parameters.uniforms['projectionMatrixInverse'] = { value: this.renderingManager.camera.projectionMatrixInverse };
-			// According to https://threejs.org/docs/#api/en/renderers/webgl/WebGLProgram
-			parameters.uniforms['viewMatrixInverse'] = { value: this.renderingManager.camera.matrixWorld };
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
 			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader);
@@ -208,15 +205,11 @@ export class SceneManager {
 			attribute float lod;
 			attribute float maxLod;
 			uniform mat4 modelMatrixInverse;
-			uniform mat4 projectionMatrixInverse;
-			uniform mat4 viewMatrixInverse;
 			uniform float lodThreshold;\n`
 			+ shader.substring(0, shader.indexOf('}'))
 			+
 			`gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
-			vec4 finalPosition4 = viewMatrixInverse * projectionMatrixInverse * gl_Position;
-			vec3 finalPosition = finalPosition4.xyz / finalPosition4.w;
-			gl_Position.w -= float(distance(finalPosition, cameraPosition) > lodThreshold * (lod + 1.) && lod < maxLod) * gl_Position.w;\n`
+			gl_Position.w -= float(distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition) > lodThreshold * (lod + 1.) && lod < maxLod) * gl_Position.w;\n`
 			+ shader.substring(shader.indexOf('}')));
 	}
 
