@@ -14,6 +14,7 @@ export class SceneManager {
 	protected renderingManager: RenderingManager;
 
 	protected staticElements: THREE.Group;
+	protected spotLight!: THREE.SpotLight;
 	// Use additional group to clear placed glyphs without clearing plane, lighting etc.
 	protected glyphGroup: THREE.Group;
 
@@ -47,15 +48,15 @@ export class SceneManager {
 
 		// Lighting
 		this.staticElements.add(new THREE.AmbientLight(0xdddddd));
-		const spotLight = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 2.1, 0, 0);
-		spotLight.castShadow = true;
+		this.spotLight = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 2.1, 0, 0);
+		this.spotLight.castShadow = true;
 		const shadowMapResolution = 2 ** 13;
-		spotLight.shadow.mapSize = new THREE.Vector2(shadowMapResolution, shadowMapResolution);
-		spotLight.position.set(-2, 2, 2);
-		spotLight.lookAt(new THREE.Vector3(0, 0, 0));
-		spotLight.shadow.camera.near = 0.01;
-		spotLight.shadow.camera.far = 10;
-		this.staticElements.add(spotLight);
+		this.spotLight.shadow.mapSize.set(shadowMapResolution, shadowMapResolution);
+		this.spotLight.position.set(-2, 2, 2);
+		this.spotLight.lookAt(new THREE.Vector3(0, 0, 0));
+		this.spotLight.shadow.camera.near = 0.01;
+		this.spotLight.shadow.camera.far = 10;
+		this.staticElements.add(this.spotLight);
 
 		// Grid
 		const plane = new THREE.Mesh(
@@ -340,6 +341,16 @@ export class SceneManager {
 			}
 			this.calculateGlyphIndices();
 			this.createInstancedMeshes();
+		}
+		if (value.shadowMapSettings?.sizeExponent) {
+			const shadowMapResolution = 2 ** this._mappings!.shadowMapSettings.sizeExponent;
+			this.spotLight.shadow.mapSize.set(shadowMapResolution, shadowMapResolution);
+			this.spotLight.shadow.map?.setSize(shadowMapResolution, shadowMapResolution);
+			this.renderingManager.requestUpdate();
+		}
+		if (value.shadowMapSettings?.enabled) {
+			this.spotLight.castShadow = this._mappings!.shadowMapSettings.enabled;
+			this.renderingManager.requestUpdate();
 		}
 		if (value.requiredMappings?.positionX || value.requiredMappings?.positionY) {
 			this.createInstancedMeshes();

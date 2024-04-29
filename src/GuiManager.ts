@@ -7,6 +7,10 @@ export type Mappings = {
 		labelSize: number,
 		labelOffset: number
 	},
+	shadowMapSettings: {
+		sizeExponent: number,
+		enabled: boolean
+	},
 	basicMappings: {
 		size: number,
 		glyphAtlas: string
@@ -23,6 +27,10 @@ export type MappingsUpdate = {
 	labelSettings?: {
 		labelSize?: boolean,
 		labelOffset?: boolean
+	},
+	shadowMapSettings?: {
+		sizeExponent?: boolean,
+		enabled?: boolean
 	},
 	basicMappings?: {
 		size?: boolean,
@@ -72,6 +80,10 @@ export class GuiManager {
 				labelSize: 0.01,
 				labelOffset: 0.01
 			},
+			shadowMapSettings: {
+				sizeExponent: 13,
+				enabled: true
+			},
 			basicMappings: {
 				size: 0.1,
 				glyphAtlas: ''
@@ -95,6 +107,13 @@ export class GuiManager {
 		this.sceneManager = this.renderingManager.sceneManager;
 		// (Intended) shallow-copy, will reference the same memory!
 		this.sceneManager.mappings = this.mappings;
+
+		this.mainGui.add(this.mappings.shadowMapSettings, 'enabled').name('Use shadow map').onChange(async () => {
+			await this.sceneManager.update({ shadowMapSettings: { enabled: true } });
+		});
+		this.mainGui.add(this.mappings.shadowMapSettings, 'sizeExponent').min(8).max(15).step(1).name('Shadow map size exponent').onChange(async () => {
+			await this.sceneManager.update({ shadowMapSettings: { sizeExponent: true } });
+		});
 
 		this.labelSettingsGui = this.mainGui.addFolder('Label settings');
 		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelSize').min(0.005).max(0.05).onChange(async () => {
