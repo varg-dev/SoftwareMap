@@ -25,6 +25,7 @@ export class SceneManager {
 	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
 	protected glyphCount: Array<number> | undefined;
 	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
+	protected materials: Array<THREE.Material> | undefined;
 
 	protected _mappings: Mappings | undefined;
 	protected xAndYBounds: { min: THREE.Vector2, max: THREE.Vector2 } | undefined;
@@ -88,6 +89,7 @@ export class SceneManager {
 		if (this.xAndYBounds === undefined) this.findAttributeBounds();
 
 		this.glyphGroup.clear();
+		this.materials = [];
 
 		this.instancedGlyphs = [];
 		for (const [index, count] of this.glyphCount.entries()) {
@@ -113,30 +115,42 @@ export class SceneManager {
 
 	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>): void {
 		const geometry = new THREE.InstancedBufferGeometry();
-		geometry.index = mesh.geometry.index;
-		geometry.attributes = mesh.geometry.attributes;
+		geometry.index = mesh.geometry.index!.clone();
+		// Since all glyphs in lodDummy.json have the same geometry, mesh.geometry is the same object for all colors. This requires a deep-ish copy to not override the attributes set for previous iterations.
+		geometry.attributes = { ...mesh.geometry.attributes };
 		geometry.instanceCount = count;
 
 		/*
-		Create position offset buffer
+		Create position offset and LoD buffers
 		 */
-		const positionOffsets = new Array<number>(count * 2);
+		const positionOffsets = new Float32Array(count * 2);
+		const lods = new Float32Array(count);
+		const maxLods = new Float32Array(count);
 
 		let arrayIndex = 0;
 		for (const mapping of this.glyphToCsvMapping!) {
-			if (!mapping.glyphIndices.includes(glyphIndex)) continue;
+			const lod = mapping.glyphIndices.indexOf(glyphIndex);
+			if (lod == -1) continue;
 
 			const position = this.calculatePosition(this._csv!.csv[mapping.csvRow]);
 			positionOffsets[arrayIndex * 2] = position.x;
 			positionOffsets[arrayIndex * 2 + 1] = position.y;
+
+			lods[arrayIndex] = lod;
+			maxLods[arrayIndex] = mapping.glyphIndices.length - 1;
+
 			++arrayIndex;
 		}
 
-		const positionAttribute = new THREE.InstancedBufferAttribute(new Float32Array(positionOffsets), 2);
-
+		const positionAttribute = new THREE.InstancedBufferAttribute(positionOffsets, 2);
+		const lodAttribute = new THREE.InstancedBufferAttribute(lods, 1,);
+		const maxLodAttribute = new THREE.InstancedBufferAttribute(maxLods, 1);
 		geometry.setAttribute('positionOffset', positionAttribute);
+		geometry.setAttribute('lod', lodAttribute);
+		geometry.setAttribute('maxLod', maxLodAttribute);
 
 		const material = (mesh.material as THREE.Material).clone();
+		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; }
 		const depthMaterial = new THREE.MeshDepthMaterial();
 		const distanceMaterial = new THREE.MeshDistanceMaterial();
 
@@ -152,10 +166,18 @@ export class SceneManager {
 		Add positional offset to materials
 		 */
 
+		material.userData = { lodThreshold: { value: 0.75 } };
+		depthMaterial.userData = { lodThreshold: { value: 0.75 } };
+		distanceMaterial.userData = { lodThreshold: { value: 0.75 } };
+
 		const onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			parameters.uniforms['modelMatrixInverse'] = { value: instancedMesh.matrixWorld.clone().invert() };
+			parameters.uniforms['projectionMatrixInverse'] = { value: this.renderingManager.camera.projectionMatrixInverse };
+			// According to https://threejs.org/docs/#api/en/renderers/webgl/WebGLProgram
+			parameters.uniforms['viewMatrixInverse'] = { value: this.renderingManager.camera.matrixWorld };
+			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
-			parameters.vertexShader = this.addPositionOffsetToShader(parameters.vertexShader);
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader);
 
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
 		};
@@ -163,6 +185,10 @@ export class SceneManager {
 		material.onBeforeCompile = onBeforeCompile;
 		depthMaterial.onBeforeCompile = onBeforeCompile;
 		distanceMaterial.onBeforeCompile = onBeforeCompile;
+
+		this.materials!.push(material);
+		this.materials!.push(depthMaterial);
+		this.materials!.push(distanceMaterial);
 
 		instancedMesh.customDistanceMaterial = distanceMaterial;
 		instancedMesh.customDepthMaterial = depthMaterial;
@@ -172,38 +198,26 @@ export class SceneManager {
 	}
 
 	/**
-	 * Inserts the given code into the given shader chunk AFTER the given insertion point string.
-	 * @param shaderChunkName The name of the shader chunk to insert into
-	 * @param insertionPoint A string contained in the shader chunk directly following which the code will be inserted
-	 * @param code The GLSL code to insert into the shader chunk
-	 * @returns The given shader chunk augmented by the given code
-	 * @protected
-	 */
-	protected insertCodeIntoShaderChunk(shaderChunkName: keyof typeof THREE.ShaderChunk, insertionPoint: string, code: string): string {
-		const shaderChunk: string = THREE.ShaderChunk[shaderChunkName];
-
-		return shaderChunk.substring(0, shaderChunk.indexOf(insertionPoint) + insertionPoint.length)
-			+ code
-			+ shaderChunk.substring(shaderChunk.indexOf(insertionPoint) + insertionPoint.length);
-	}
-
-	/**
-	 * Adds code enabling the position offset passed via attribute in the given GLSL shader.
+	 * Adds code enabling the position offset and LoD passed via attribute in the given GLSL shader.
 	 * @param shader The shader to augment
 	 * @protected
 	 */
-	protected addPositionOffsetToShader(shader: string): string {
-		const insertionPoint = '#include <begin_vertex>';
-
-		const shaderChunk = this.insertCodeIntoShaderChunk('begin_vertex',
-			'vec3 transformed = vec3( position );\n',
-			'vec4 offset = modelMatrixInverse * vec4(positionOffset.x, 0., positionOffset.y, 0.);\ntransformed += offset.xyz;\n');
-
-		return 'attribute vec2 positionOffset;\n'
-			+ 'uniform mat4 modelMatrixInverse;\n'
-			+ shader.substring(0, shader.indexOf(insertionPoint))
-			+ shaderChunk
-			+ shader.substring(shader.indexOf(insertionPoint) + insertionPoint.length);
+	protected addPositionOffsetAndLoDToShader(shader: string): string {
+		return (
+			`attribute vec2 positionOffset;
+			attribute float lod;
+			attribute float maxLod;
+			uniform mat4 modelMatrixInverse;
+			uniform mat4 projectionMatrixInverse;
+			uniform mat4 viewMatrixInverse;
+			uniform float lodThreshold;\n`
+			+ shader.substring(0, shader.indexOf('}'))
+			+
+			`gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
+			vec4 finalPosition4 = viewMatrixInverse * projectionMatrixInverse * gl_Position;
+			vec3 finalPosition = finalPosition4.xyz / finalPosition4.w;
+			gl_Position.w -= float(distance(finalPosition, cameraPosition) > lodThreshold * (lod + 1.) && lod < maxLod) * gl_Position.w;\n`
+			+ shader.substring(shader.indexOf('}')));
 	}
 
 	protected calculateIndicesForGlyphs(): void {
@@ -271,8 +285,6 @@ export class SceneManager {
 			selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
 		}
 
-		//return this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return selectedGlyphName === value.name; } );
-
 		let indices = new Array<number>();
 		for (const name of selectedGlyphName) {
 			indices.push(this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return name === value.name; } ));
@@ -332,6 +344,13 @@ export class SceneManager {
 	}
 
 	public async update(value: MappingsUpdate): Promise<void> {
+		if (value.lodThreshold) {
+			if (this.materials === undefined) return;
+			for (const material of this.materials) {
+				material.userData.lodThreshold.value = this._mappings!.lodThreshold;
+			}
+			this.renderingManager.requestUpdate();
+		}
 		if (value.labelSettings?.labelSize) {
 			// PickingManager stuff...
 		}

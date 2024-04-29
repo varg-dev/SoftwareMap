@@ -3,6 +3,7 @@ import {RenderingManager} from './RenderingManager.ts';
 import {SceneManager} from './SceneManager.ts';
 
 export type Mappings = {
+	lodThreshold: number,
 	labelSettings: {
 		labelSize: number,
 		labelOffset: number
@@ -24,6 +25,7 @@ export type Mappings = {
 };
 
 export type MappingsUpdate = {
+	lodThreshold?: boolean,
 	labelSettings?: {
 		labelSize?: boolean,
 		labelOffset?: boolean
@@ -64,6 +66,7 @@ export class GuiManager {
 
 	protected mainGui: GUI;
 	protected labelSettingsGui: GUI;
+	protected shadowSettingsGui: GUI;
 	protected basicMappingsGui: GUI | undefined;
 	protected requiredMappingsGui: GUI | undefined;
 	protected optionalMappingsGui: GUI | undefined;
@@ -76,6 +79,7 @@ export class GuiManager {
 		this.mainGui = new GUI({title: 'Options'});
 
 		this.mappings = {
+			lodThreshold: 0.75,
 			labelSettings: {
 				labelSize: 0.01,
 				labelOffset: 0.01
@@ -108,10 +112,15 @@ export class GuiManager {
 		// (Intended) shallow-copy, will reference the same memory!
 		this.sceneManager.mappings = this.mappings;
 
-		this.mainGui.add(this.mappings.shadowMapSettings, 'enabled').name('Use shadow map').onChange(async () => {
+		this.mainGui.add(this.mappings, 'lodThreshold').name('Distance threshold for LoD').min(0).max(3).onChange(async () => {
+			await this.sceneManager.update({ lodThreshold: true });
+		});
+
+		this.shadowSettingsGui = this.mainGui.addFolder('Shadow map settings');
+		this.shadowSettingsGui.add(this.mappings.shadowMapSettings, 'enabled').name('Use shadow map').onChange(async () => {
 			await this.sceneManager.update({ shadowMapSettings: { enabled: true } });
 		});
-		this.mainGui.add(this.mappings.shadowMapSettings, 'sizeExponent').min(8).max(15).step(1).name('Shadow map size exponent').onChange(async () => {
+		this.shadowSettingsGui.add(this.mappings.shadowMapSettings, 'sizeExponent').min(8).max(15).step(1).name('Shadow map size exponent').onChange(async () => {
 			await this.sceneManager.update({ shadowMapSettings: { sizeExponent: true } });
 		});
 
