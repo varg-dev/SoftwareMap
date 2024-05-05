@@ -171,7 +171,6 @@ export class SceneManager {
 		distanceMaterial.userData = { lodThreshold: { value: 0.75 } };
 
 		const onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
-			parameters.uniforms['modelMatrixInverse'] = { value: instancedMesh.matrixWorld.clone().invert() };
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
 			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader);
@@ -204,7 +203,6 @@ export class SceneManager {
 			`attribute vec2 positionOffset;
 			attribute float lod;
 			attribute float maxLod;
-			uniform mat4 modelMatrixInverse;
 			uniform float lodThreshold;\n`
 			+ shader.substring(0, shader.indexOf('}'))
 			+
