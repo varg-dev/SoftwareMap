@@ -9,6 +9,10 @@ export class RenderingManager {
 	protected renderer: THREE.WebGLRenderer;
 	readonly camera: THREE.PerspectiveCamera;
 
+	protected renderTarget: THREE.WebGLRenderTarget;
+	protected copyScene: THREE.Scene;
+	protected copyMaterial: THREE.ShaderMaterial;
+
 	readonly sceneManager: SceneManager;
 
 	protected controls!: WorldInHandControls;
@@ -34,6 +38,38 @@ export class RenderingManager {
 		this.controls.allowRotationBelowGroundPlane = false;
 		this.controls.useBottomOfBoundingBoxAsGroundPlane = false;
 
+		const size = this.renderer.getSize(new THREE.Vector2()).multiplyScalar(this.renderer.getPixelRatio());
+		this.renderTarget = new THREE.WebGLRenderTarget(size.x, size.y, { count: 2, format: THREE.RGBAFormat, type: THREE.FloatType, samples: 4 });
+		// The controls need a correct depth texture. By sharing the texture created by the WorldInHandControls, rendering to this.renderTarget also renders to this depth texture.
+		this.renderTarget.depthTexture = this.controls.navigationRenderTarget.depthTexture;
+
+		const copyVertexShader = `
+			varying vec2 vUV;
+			
+			void main() {
+				vUV = uv;
+				gl_Position = vec4(position, 1.0);
+			}
+			`;
+
+		const copyFragmentShader = `
+			varying vec2 vUV;
+			uniform sampler2D uColorTexture;
+			
+			void main() {
+				gl_FragColor = LinearTosRGB(texture(uColorTexture, vUV));
+			}
+			`;
+
+		this.copyScene = new THREE.Scene();
+		this.copyMaterial = new THREE.ShaderMaterial();
+		this.copyMaterial.vertexShader = copyVertexShader;
+		this.copyMaterial.fragmentShader = copyFragmentShader;
+		const copyPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMaterial);
+		copyPlane.frustumCulled = false;
+
+		this.copyScene.add(copyPlane);
+
 		this.startRendering();
 	}
 
@@ -47,6 +83,9 @@ export class RenderingManager {
 			this.camera.aspect = this.div.clientWidth / this.div.clientHeight;
 			this.renderer.setPixelRatio(window.devicePixelRatio);
 			this.camera.updateProjectionMatrix();
+
+			const size = this.renderer.getSize(new THREE.Vector2()).multiplyScalar(this.renderer.getPixelRatio());
+			this.renderTarget.setSize(size.x, size.y);
 
 			//@ts-expect-error three.js type definitions seem to be broken, this works.
 			this.sceneManager.scene.dispatchEvent({type: 'resize'});
@@ -69,13 +108,21 @@ export class RenderingManager {
 	protected render() {
 		this.updateRequested = false;
 
-		this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
+		this.renderer.setRenderTarget(this.renderTarget);
 		this.renderer.render(this.sceneManager.scene, this.camera);
 
-		this.controls.update();
+		this.copyRenderTargetToCanvas(this.renderTarget);
+
+		this.controls.update(false);
 	}
 
 	public get canvas(): HTMLCanvasElement {
 		return this.renderer.domElement;
+	}
+
+	protected copyRenderTargetToCanvas(renderTarget: THREE.WebGLRenderTarget): void {
+		this.copyMaterial.uniforms = { uColorTexture: { value: renderTarget.textures[0] } };
+		this.renderer.setRenderTarget(null);
+		this.renderer.render(this.copyScene, this.camera);
 	}
 }

@@ -59,6 +59,16 @@ export class SceneManager {
 		this.spotLight.shadow.camera.far = 10;
 		this.staticElements.add(this.spotLight);
 
+		// Materials must have second output if the RenderTarget has two attached textures
+		const staticElementOnBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
+			const insertionPoint = parameters.fragmentShader.indexOf('}');
+			parameters.fragmentShader =
+				'layout(location = 1) out vec4 id;\n'
+				+ parameters.fragmentShader.substring(0, insertionPoint)
+				+ 'id = vec4(0, 0, 0, 1);\n'
+				+ parameters.fragmentShader.substring(insertionPoint);
+		};
+
 		// Grid
 		const plane = new THREE.Mesh(
 			new THREE.PlaneGeometry(2.25, 2.25),
@@ -67,10 +77,12 @@ export class SceneManager {
 		plane.rotateX(Math.PI / 2);
 		plane.translateY(-0.0001);
 		plane.receiveShadow = true;
+		plane.material.onBeforeCompile = staticElementOnBeforeCompile;
 		this.staticElements.add(plane);
 
 		const grid = new THREE.GridHelper(2.25, 100);
 		grid.receiveShadow = true;
+		grid.material.onBeforeCompile = staticElementOnBeforeCompile;
 		this.staticElements.add(grid);
 	}
 
@@ -174,6 +186,13 @@ export class SceneManager {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
 			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader);
+
+			const insertionPoint = parameters.fragmentShader.indexOf('}');
+			parameters.fragmentShader =
+				'layout(location = 1) out vec4 id;\n'
+				+ parameters.fragmentShader.substring(0, insertionPoint)
+				+ 'id = vec4(1.);\n'
+				+ parameters.fragmentShader.substring(insertionPoint);
 
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
 		};
