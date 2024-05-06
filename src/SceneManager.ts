@@ -65,7 +65,7 @@ export class SceneManager {
 			parameters.fragmentShader =
 				'layout(location = 1) out vec4 id;\n'
 				+ parameters.fragmentShader.substring(0, insertionPoint)
-				+ 'id = vec4(0, 0, 0, 1);\n'
+				+ 'id = vec4(vec3(0.), 1.);\n'
 				+ parameters.fragmentShader.substring(insertionPoint);
 		};
 
@@ -84,6 +84,31 @@ export class SceneManager {
 		grid.receiveShadow = true;
 		grid.material.onBeforeCompile = staticElementOnBeforeCompile;
 		this.staticElements.add(grid);
+
+		// Black background for id texture
+		const backgroundMaterial = new THREE.RawShaderMaterial({
+			vertexShader: `
+			in vec3 position;
+			
+			void main() {
+				gl_Position = vec4(position.xy, 1., 1.);
+			}
+			`,
+			fragmentShader: `
+			precision highp float;
+			precision highp int;
+
+			layout(location = 0) out vec4 color; // not used
+			layout(location = 1) out vec4 id;
+			
+			void main() {
+				id = vec4(vec3(0.), 1.);
+			}
+			`,
+			glslVersion: THREE.GLSL3
+		});
+		const background = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), backgroundMaterial);
+		this.staticElements.add(background);
 	}
 
 	public set csv(value: CSV) {
@@ -138,6 +163,7 @@ export class SceneManager {
 		const positionOffsets = new Float32Array(count * 2);
 		const lods = new Float32Array(count);
 		const maxLods = new Float32Array(count);
+		const ids = new Float32Array(count);
 
 		let arrayIndex = 0;
 		for (const mapping of this.glyphToCsvMapping!) {
@@ -150,6 +176,7 @@ export class SceneManager {
 
 			lods[arrayIndex] = lod;
 			maxLods[arrayIndex] = mapping.glyphIndices.length - 1;
+			ids[arrayIndex] = mapping.csvRow;
 
 			++arrayIndex;
 		}
@@ -157,9 +184,11 @@ export class SceneManager {
 		const positionAttribute = new THREE.InstancedBufferAttribute(positionOffsets, 2);
 		const lodAttribute = new THREE.InstancedBufferAttribute(lods, 1,);
 		const maxLodAttribute = new THREE.InstancedBufferAttribute(maxLods, 1);
+		const idAttribute = new THREE.InstancedBufferAttribute(ids, 1);
 		geometry.setAttribute('positionOffset', positionAttribute);
 		geometry.setAttribute('lod', lodAttribute);
 		geometry.setAttribute('maxLod', maxLodAttribute);
+		geometry.setAttribute('idAttribute', idAttribute);
 
 		const material = (mesh.material as THREE.Material).clone();
 		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; }
@@ -189,9 +218,11 @@ export class SceneManager {
 
 			const insertionPoint = parameters.fragmentShader.indexOf('}');
 			parameters.fragmentShader =
-				'layout(location = 1) out vec4 id;\n'
+				'varying float idPass;\n'
+				+ 'layout(location = 1) out vec4 id;\n'
 				+ parameters.fragmentShader.substring(0, insertionPoint)
-				+ 'id = vec4(1.);\n'
+				// Add one to distinguish from background
+				+ 'id = vec4(vec3(idPass + 1.), 1.);\n'
 				+ parameters.fragmentShader.substring(insertionPoint);
 
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
@@ -219,14 +250,17 @@ export class SceneManager {
 	 */
 	protected addPositionOffsetAndLoDToShader(shader: string): string {
 		return (
-			`attribute vec2 positionOffset;
+			`attribute float idAttribute;
+			attribute vec2 positionOffset;
 			attribute float lod;
 			attribute float maxLod;
-			uniform float lodThreshold;\n`
+			uniform float lodThreshold;
+			varying float idPass;\n`
 			+ shader.substring(0, shader.indexOf('}'))
 			+
 			`gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
-			gl_Position.w -= float(distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition) > lodThreshold * (lod + 1.) && lod < maxLod) * gl_Position.w;\n`
+			gl_Position.w -= float(distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition) > lodThreshold * (lod + 1.) && lod < maxLod) * gl_Position.w;
+			idPass = idAttribute;\n`
 			+ shader.substring(shader.indexOf('}')));
 	}
 

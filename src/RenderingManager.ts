@@ -9,7 +9,8 @@ export class RenderingManager {
 	protected renderer: THREE.WebGLRenderer;
 	readonly camera: THREE.PerspectiveCamera;
 
-	protected renderTarget: THREE.WebGLRenderTarget;
+	protected multisampledRenderTarget: THREE.WebGLRenderTarget;
+	protected simpleRenderTarget: THREE.WebGLRenderTarget;
 	protected copyScene: THREE.Scene;
 	protected copyMaterial: THREE.ShaderMaterial;
 
@@ -39,9 +40,13 @@ export class RenderingManager {
 		this.controls.useBottomOfBoundingBoxAsGroundPlane = false;
 
 		const size = this.renderer.getSize(new THREE.Vector2()).multiplyScalar(this.renderer.getPixelRatio());
-		this.renderTarget = new THREE.WebGLRenderTarget(size.x, size.y, { count: 2, format: THREE.RGBAFormat, type: THREE.FloatType, samples: 4 });
+		this.multisampledRenderTarget = new THREE.WebGLRenderTarget(size.x, size.y, { count: 2, format: THREE.RGBAFormat, type: THREE.FloatType, samples: 4 });
 		// The controls need a correct depth texture. By sharing the texture created by the WorldInHandControls, rendering to this.renderTarget also renders to this depth texture.
-		this.renderTarget.depthTexture = this.controls.navigationRenderTarget.depthTexture;
+		this.multisampledRenderTarget.depthTexture = this.controls.navigationRenderTarget.depthTexture;
+		this.simpleRenderTarget = new THREE.WebGLRenderTarget(size.x, size.y, { format: THREE.RGBAFormat, type: THREE.FloatType });
+		this.simpleRenderTarget.texture = this.multisampledRenderTarget.textures[1];
+		// This probably sets up the framebuffer internally. Either way, this is necessary to later read from this render target.
+		this.renderer.setRenderTarget(this.simpleRenderTarget);
 
 		const copyVertexShader = `
 			varying vec2 vUV;
@@ -85,7 +90,8 @@ export class RenderingManager {
 			this.camera.updateProjectionMatrix();
 
 			const size = this.renderer.getSize(new THREE.Vector2()).multiplyScalar(this.renderer.getPixelRatio());
-			this.renderTarget.setSize(size.x, size.y);
+			this.multisampledRenderTarget.setSize(size.x, size.y);
+			this.simpleRenderTarget.setSize(size.x, size.y)
 
 			//@ts-expect-error three.js type definitions seem to be broken, this works.
 			this.sceneManager.scene.dispatchEvent({type: 'resize'});
@@ -108,12 +114,36 @@ export class RenderingManager {
 	protected render() {
 		this.updateRequested = false;
 
-		this.renderer.setRenderTarget(this.renderTarget);
+		this.renderer.setRenderTarget(this.multisampledRenderTarget);
 		this.renderer.render(this.sceneManager.scene, this.camera);
 
-		this.copyRenderTargetToCanvas(this.renderTarget);
+		this.copyRenderTargetToCanvas(this.multisampledRenderTarget);
+
+		this.getIdFromPixel(0, 0);
 
 		this.controls.update(false);
+	}
+
+	/**
+	 * Read the id at the position specified in NDC. x and y are clamped to [-1, 1].
+	 * @param x
+	 * @param y
+	 */
+	public getIdFromPixel(x: number, y: number): number {
+		const width = this.simpleRenderTarget.width;
+		const height = this.simpleRenderTarget.height;
+
+		x = Math.max(Math.min(1, x), -1);
+		y = Math.max(Math.min(1, y), -1);
+
+		const xPixel = (x * width / 2 + width / 2) - 1;
+		const yPixel = (y * height / 2 + height / 2) - 1;
+
+		const pixels = new Float32Array(4 * 4);
+		this.renderer.readRenderTargetPixels(this.simpleRenderTarget, xPixel, yPixel, 2, 2, pixels);
+
+		console.log(pixels);
+		return pixels[0];
 	}
 
 	public get canvas(): HTMLCanvasElement {
