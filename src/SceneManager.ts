@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {GlyphAtlas, GlyphLoader} from './GlyphLoader.ts';
 import {type Mappings, MappingsUpdate} from './GuiManager.ts';
 import {RenderingManager} from './RenderingManager.ts';
+import {PickingHandler} from "./PickingHandler.ts";
 
 type CSV = Array<Array<string>>;
 type CsvAndIndices = {
@@ -11,7 +12,7 @@ type CsvAndIndices = {
 
 export class SceneManager {
 	readonly scene: THREE.Scene;
-	protected renderingManager: RenderingManager;
+	readonly renderingManager: RenderingManager;
 
 	protected staticElements: THREE.Group;
 	protected spotLight!: THREE.SpotLight;
@@ -26,6 +27,8 @@ export class SceneManager {
 	protected glyphCount: Array<number> | undefined;
 	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
+
+	protected pickingHandler: PickingHandler;
 
 	protected _mappings: Mappings | undefined;
 	protected xAndYBounds: { min: THREE.Vector2, max: THREE.Vector2 } | undefined;
@@ -42,6 +45,8 @@ export class SceneManager {
 		this.scene.add(this.glyphGroup);
 
 		this.setUpStaticElements();
+
+		this.pickingHandler = new PickingHandler(this);
 	}
 
 	protected setUpStaticElements(): void {
@@ -119,6 +124,12 @@ export class SceneManager {
 
 		this.calculateIndicesForGlyphs();
 		this.createInstancedMeshes();
+	}
+
+	public get csv(): CSV | undefined {
+		if (this._csv === undefined) return undefined;
+
+		return this._csv.csv;
 	}
 
 	protected createInstancedMeshes(): void {
@@ -222,7 +233,7 @@ export class SceneManager {
 				+ 'layout(location = 1) out vec4 id;\n'
 				+ parameters.fragmentShader.substring(0, insertionPoint)
 				// Add one to distinguish from background
-				+ 'id = vec4(vec3(idPass + 1.), 1.);\n'
+				+ 'id = vec4(vec3(idPass), 1.);\n'
 				+ parameters.fragmentShader.substring(insertionPoint);
 
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
@@ -359,7 +370,7 @@ export class SceneManager {
 		}
 	}
 
-	protected calculatePosition(csvRow: Array<string>): THREE.Vector2 {
+	public calculatePosition(csvRow: Array<string>): THREE.Vector2 {
 		const position = new THREE.Vector2(Number(csvRow[this._csv!.positionIndices!.x]), Number(csvRow[this._csv!.positionIndices!.y]));
 		position.sub(this.xAndYBounds!.min).divide(this.xAndYBounds!.max.clone().sub(this.xAndYBounds!.min)).multiplyScalar(2).subScalar(1);
 		return position;
@@ -396,13 +407,13 @@ export class SceneManager {
 			this.renderingManager.requestUpdate();
 		}
 		if (value.labelSettings?.labelSize) {
-			// PickingManager stuff...
+			this.pickingHandler.labelSize = this._mappings!.labelSettings.labelSize;
 		}
 		if (value.labelSettings?.labelOffset) {
-			// PickingManager stuff...
+			this.pickingHandler.labelOffset = this._mappings!.labelSettings.labelOffset;
 		}
 		if (value.basicMappings?.size) {
-			// Scale stuff...
+			// TODO: Scale stuff...
 		}
 		if (value.basicMappings?.glyphAtlas) {
 			if (this._mappings?.basicMappings.glyphAtlas !== undefined) {
@@ -424,6 +435,8 @@ export class SceneManager {
 		}
 		if (value.requiredMappings?.positionX || value.requiredMappings?.positionY) {
 			this.createInstancedMeshes();
+
+			// TODO: This does not change glyph position when the glyphs already exist
 		}
 		if (value.requiredMappings?.glyphType) {
 			this.calculateIndicesForGlyphs();

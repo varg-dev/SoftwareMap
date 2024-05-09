@@ -129,7 +129,7 @@ export class RenderingManager {
 	 * @param x
 	 * @param y
 	 */
-	public getIdFromPixel(x: number, y: number): number {
+	public getIdFromPixel(x: number, y: number): number | null {
 		const width = this.simpleRenderTarget.width;
 		const height = this.simpleRenderTarget.height;
 
@@ -139,11 +139,20 @@ export class RenderingManager {
 		const xPixel = (x * width / 2 + width / 2) - 1;
 		const yPixel = (y * height / 2 + height / 2) - 1;
 
-		const pixels = new Float32Array(4 * 4);
-		this.renderer.readRenderTargetPixels(this.simpleRenderTarget, xPixel, yPixel, 2, 2, pixels);
+		const pixels = new Float32Array(4 * 9);
+		this.renderer.readRenderTargetPixels(this.simpleRenderTarget, xPixel, yPixel, 3, 3, pixels);
 
-		console.log(pixels);
-		return pixels[0];
+		let isEqual = true;
+
+		/*
+		Due to MSAA, the value returned is possibly interpolated between multiple glyphs or between a glyph and the background.
+		This is an attempt to ensure a correct value is read as there is no easy way to tell if the value 125 is correct
+		or the result of interpolation between the background (0) and glyph number 250.
+		 */
+		for (let i = 4; i < pixels.length; i += 4) if (pixels[i] !== pixels[0]) isEqual = false;
+
+		if (isEqual && pixels[0] !== 0) return pixels[0];
+		else return null;
 	}
 
 	public get canvas(): HTMLCanvasElement {
