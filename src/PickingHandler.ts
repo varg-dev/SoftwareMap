@@ -10,6 +10,7 @@ export class PickingHandler {
 	protected fontFace: FontFace;
 
 	protected currentLabel: Label | undefined;
+	protected csvRow: Array<string> | undefined;
 	protected labelGroup: Group;
 
 	protected _labelOffset: number = 0.01;
@@ -51,10 +52,10 @@ export class PickingHandler {
 
 		const csv = this.sceneManager.csv;
 		if (csv === undefined) return;
-		const csvRow = csv[value];
+		this.csvRow = csv[value];
 		let labelText = '';
 		for (let i = 0; i < csv[0].length; ++i) {
-			labelText += csv[0][i] + ': ' + csvRow[i];
+			labelText += csv[0][i] + ': ' + this.csvRow[i];
 
 			// line breaks at the end of the label text seem to make the labeling system put this line break before the last word
 			if (i < csv[0].length - 1)
@@ -72,7 +73,7 @@ export class PickingHandler {
 				+ parameters.fragmentShader.substring(insertionPoint);
 		};
 
-		const position = this.sceneManager.calculatePosition(csvRow);
+		const position = this.sceneManager.calculatePosition(this.csvRow);
 		label.position.set(position.x, 0.001, position.y);
 		label.scale.set(this._labelSize, this._labelSize, this._labelSize);
 		label.rotateX(3 * Math.PI / 2);
@@ -85,6 +86,14 @@ export class PickingHandler {
 		// render twice to actually display label (label is never displayed on first render)
 		this.sceneManager.renderingManager.requestUpdate();
 		setTimeout(() => this.sceneManager.renderingManager.requestUpdate(), 20);
+	}
+
+	public updateLabelPosition(): void {
+		if (this.csvRow === undefined) return;
+
+		const position = this.sceneManager.calculatePosition(this.csvRow);
+		this.currentLabel?.position.set(position.x, 0.001, position.y);
+		this.sceneManager.renderingManager.requestUpdate();
 	}
 
 	public set labelOffset(value: number) {

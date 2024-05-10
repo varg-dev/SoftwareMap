@@ -446,6 +446,7 @@ export class SceneManager {
 		if (value.requiredMappings?.positionX || value.requiredMappings?.positionY) {
 			this.xAndYBounds = undefined;
 			this.createInstancedMeshes();
+			this.pickingHandler.updateLabelPosition();
 		}
 		if (value.requiredMappings?.glyphType) {
 			this.calculateIndicesForGlyphs();
