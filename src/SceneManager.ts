@@ -414,7 +414,16 @@ export class SceneManager {
 			this.pickingHandler.labelOffset = this._mappings!.labelSettings.labelOffset;
 		}
 		if (value.basicMappings?.size) {
-			this.createInstancedMeshes();
+			if (this.instancedGlyphs === undefined) return;
+
+			const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
+
+			for (const entry of this.instancedGlyphs) {
+				for (const mesh of entry.meshes) {
+					mesh.scale.set(scale, scale, scale);
+				}
+			}
+			this.renderingManager.requestUpdate();
 		}
 		if (value.basicMappings?.glyphAtlas) {
 			if (this._mappings?.basicMappings.glyphAtlas !== undefined) {
