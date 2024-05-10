@@ -124,6 +124,10 @@ export class RenderingManager {
 		this.controls.update(false);
 	}
 
+	public resetCamera(): void {
+		this.controls.reset();
+	}
+
 	/**
 	 * Read the id at the position specified in NDC. x and y are clamped to [-1, 1].
 	 * @param x

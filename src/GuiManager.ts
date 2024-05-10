@@ -112,6 +112,8 @@ export class GuiManager {
 		// (Intended) shallow-copy, will reference the same memory!
 		this.sceneManager.mappings = this.mappings;
 
+		this.mainGui.add({ reset: () => this.renderingManager.resetCamera() }, 'reset').name('Reset camera');
+
 		this.mainGui.add(this.mappings, 'lodThreshold').name('Distance threshold for LoD').min(0).max(3).onChange(async () => {
 			await this.sceneManager.update({ lodThreshold: true });
 		});
