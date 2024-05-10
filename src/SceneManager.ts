@@ -434,9 +434,8 @@ export class SceneManager {
 			this.renderingManager.requestUpdate();
 		}
 		if (value.requiredMappings?.positionX || value.requiredMappings?.positionY) {
+			this.xAndYBounds = undefined;
 			this.createInstancedMeshes();
-
-			// TODO: This does not change glyph position when the glyphs already exist
 		}
 		if (value.requiredMappings?.glyphType) {
 			this.calculateIndicesForGlyphs();
