@@ -136,6 +136,7 @@ export class SceneManager {
 		if (!this.sceneCanBeDrawn() || this.glyphToCsvMapping === undefined || this.glyphCount === undefined) return;
 		if (this.xAndYBounds === undefined) this.findAttributeBounds();
 
+		// TODO: I smell a memory leak here because the previously used glyphs are not being disposed of properly
 		this.glyphGroup.clear();
 		this.materials = [];
 
@@ -413,7 +414,7 @@ export class SceneManager {
 			this.pickingHandler.labelOffset = this._mappings!.labelSettings.labelOffset;
 		}
 		if (value.basicMappings?.size) {
-			// TODO: Scale stuff...
+			this.createInstancedMeshes();
 		}
 		if (value.basicMappings?.glyphAtlas) {
 			if (this._mappings?.basicMappings.glyphAtlas !== undefined) {
