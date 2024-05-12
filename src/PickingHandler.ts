@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import {FontFace, FontFaceLoader, Label} from 'three-openll-labels';
 import Alignment = Label.Alignment;
 import {SceneManager} from "./SceneManager.ts";
-import {Group, Material, WebGLProgramParametersWithUniforms} from "three";
 
 export class PickingHandler {
 	protected sceneManager: SceneManager;
@@ -11,7 +10,7 @@ export class PickingHandler {
 
 	protected currentLabel: Label | undefined;
 	protected csvRow: Array<string> | undefined;
-	protected labelGroup: Group;
+	protected labelGroup: THREE.Group;
 
 	protected _labelOffset: number = 0.01;
 	protected _labelSize: number = 0.01;
@@ -19,7 +18,7 @@ export class PickingHandler {
 	constructor(sceneManager: SceneManager) {
 		this.sceneManager = sceneManager;
 
-		this.labelGroup = new Group();
+		this.labelGroup = new THREE.Group();
 		this.sceneManager.scene.add(this.labelGroup);
 
 		this.canvas = this.sceneManager.renderingManager.canvas;
