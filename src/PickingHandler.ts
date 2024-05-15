@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import {FontFace, FontFaceLoader, Label} from 'three-openll-labels';
-import Alignment = Label.Alignment;
+import {FontFace, FontFaceLoader} from 'three-openll-labels';
 import {SceneManager} from "./SceneManager.ts";
+import {SplitLabel} from "./SplitLabel.ts";
 
 export class PickingHandler {
 	protected sceneManager: SceneManager;
 	protected canvas: HTMLCanvasElement;
 	protected fontFace: FontFace;
 
-	protected currentLabel: Label | undefined;
+	protected currentLabel: SplitLabel | undefined;
 	protected csvRow: Array<string> | undefined;
 	protected labelGroup: THREE.Group;
 
@@ -52,18 +52,21 @@ export class PickingHandler {
 		const csv = this.sceneManager.csv;
 		if (csv === undefined) return;
 		this.csvRow = csv[value];
-		let labelText = '';
+		let keyText = '';
+		let valueText = '';
 		for (let i = 0; i < csv[0].length; ++i) {
-			labelText += csv[0][i] + ': ' + this.csvRow[i];
+			keyText += csv[0][i] + ': ';
+			valueText += this.csvRow[i];
 
 			// line breaks at the end of the label text seem to make the labeling system put this line break before the last word
-			if (i < csv[0].length - 1)
-				labelText += '\n';
+			if (i < csv[0].length - 1) {
+				keyText += '\n';
+				valueText += '\n';
+			}
 		}
-		const label = new Label(labelText, this.fontFace, new THREE.Color(0xffffff));
+		const label = new SplitLabel(keyText, valueText, this.fontFace, new THREE.Color(0xffffff));
 
-		// @ts-expect-error: Unfortunately, this must be accessed in order to add the second fragment shader output to avoid a WebGL warning
-		(label._mesh.material as Material).onBeforeCompile = (parameters: WebGLProgramParametersWithUniforms) => {
+		label.material.onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			const insertionPoint = parameters.fragmentShader.indexOf('}');
 			parameters.fragmentShader =
 				'layout(location = 1) out vec4 id;\n'
@@ -76,11 +79,10 @@ export class PickingHandler {
 		label.position.set(position.x, 0.001, position.y);
 		label.scale.set(this._labelSize, this._labelSize, this._labelSize);
 		label.rotateX(3 * Math.PI / 2);
-		label.alignment = Alignment.Center;
 		label.translateGlobal(new THREE.Vector3(0, 0, this._labelOffset));
 
 		this.currentLabel = label;
-		this.labelGroup.add(this.currentLabel);
+		this.currentLabel.addToObject3D(this.labelGroup);
 
 		// render twice to actually display label (label is never displayed on first render)
 		this.sceneManager.renderingManager.requestUpdate();
