@@ -5,7 +5,7 @@ export type Glyph = {
 	baseModel: string,
 	name: string,
 	variants: Array<{name: Array<string>} & Record<string, number>>
-}
+};
 
 export type GlyphJson = {
 	attributes: Array<string>,
@@ -17,7 +17,7 @@ export type GlyphAtlas = {
 	json: GlyphJson,
 	glyphs: Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>,
 	largestExtent: number
-}
+};
 
 export class GlyphLoader {
 

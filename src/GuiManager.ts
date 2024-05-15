@@ -213,9 +213,9 @@ export class GuiManager {
 		}
 	}
 
-	protected getGlyphAtlasNames(): string[] {
+	protected getGlyphAtlasNames(): Array<string> {
 		const glyphNamesRecord = import.meta.glob('/public/*.json');
-		const glyphNames: string[] = [];
+		const glyphNames: Array<string> = [];
 
 		for (const glyphName in glyphNamesRecord) {
 			const sanitizedFront = glyphName.substring(glyphName.lastIndexOf('/') + 1);

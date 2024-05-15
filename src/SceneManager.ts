@@ -203,7 +203,7 @@ export class SceneManager {
 		geometry.setAttribute('idAttribute', idAttribute);
 
 		const material = (mesh.material as THREE.Material).clone();
-		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; }
+		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; };
 		const depthMaterial = new THREE.MeshDepthMaterial();
 		const distanceMaterial = new THREE.MeshDistanceMaterial();
 
@@ -341,7 +341,7 @@ export class SceneManager {
 			selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
 		}
 
-		let indices = new Array<number>();
+		const indices = new Array<number>();
 		for (const name of selectedGlyphName) {
 			indices.push(this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return name === value.name; } ));
 		}
