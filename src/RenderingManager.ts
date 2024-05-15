@@ -91,7 +91,8 @@ export class RenderingManager {
 
 			const size = this.renderer.getSize(new THREE.Vector2()).multiplyScalar(this.renderer.getPixelRatio());
 			this.multisampledRenderTarget.setSize(size.x, size.y);
-			this.simpleRenderTarget.setSize(size.x, size.y)
+			this.simpleRenderTarget.setSize(size.x, size.y);
+			this.renderer.setRenderTarget(this.simpleRenderTarget);
 
 			//@ts-expect-error three.js type definitions seem to be broken, this works.
 			this.sceneManager.scene.dispatchEvent({type: 'resize'});
