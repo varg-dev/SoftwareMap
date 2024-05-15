@@ -4,7 +4,7 @@ import {type Mappings, MappingsUpdate} from './GuiManager.ts';
 import {RenderingManager} from './RenderingManager.ts';
 import {PickingHandler} from "./PickingHandler.ts";
 
-type CSV = Array<Array<string>>;
+export type CSV = Array<Array<string>>;
 type CsvAndIndices = {
 	csv: CSV,
 	positionIndices?: THREE.Vector2
