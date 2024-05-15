@@ -119,8 +119,6 @@ export class RenderingManager {
 
 		this.copyRenderTargetToCanvas(this.multisampledRenderTarget);
 
-		this.getIdFromPixel(0, 0);
-
 		this.controls.update(false);
 	}
 
