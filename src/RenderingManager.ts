@@ -27,6 +27,7 @@ export class RenderingManager {
 		this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 		this.renderer.setSize(this.div.clientWidth, this.div.clientHeight);
 		this.renderer.setPixelRatio(window.devicePixelRatio);
+		this.renderer.getContext().getExtension('EXT_float_blend');
 
 		this.div.appendChild(this.renderer.domElement);
 
