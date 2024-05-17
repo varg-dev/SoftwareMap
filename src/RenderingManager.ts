@@ -149,12 +149,21 @@ export class RenderingManager {
 
 		/*
 		Due to MSAA, the value returned is possibly interpolated between multiple glyphs or between a glyph and the background.
-		This is an attempt to ensure a correct value is read as there is no easy way to tell if the value 125 is correct
+		The code below is an attempt to ensure a correct value is read as there is no easy way to tell if the value 125 is correct
 		or the result of interpolation between the background (0) and glyph number 250.
-		 */
-		for (let i = 4; i < pixels.length; i += 4) if (pixels[i] !== pixels[0]) isEqual = false;
 
-		if (isEqual && pixels[0] !== 0) return pixels[0];
+		Additionally, different GPU drivers seem to produce different results when reading from this multisampled RenderTarget.
+		On Nvidia, this may read 195.00001525878906, 194.99998474121094 and 195 for the same ID value without interpolation with
+		the background. As such, we check if the deviation between adjacent pixels is small enough to be considered equal.
+		Larger thresholds can be risky, as glyphs with ids 194 and 195 could technically be placed next to each other so that
+		interpolation between their ids will occur.
+		 */
+		for (let i = 4; i < pixels.length; i += 4) if (Math.abs(pixels[i] - pixels[0]) > 0.001) {
+			isEqual = false;
+			break;
+		}
+
+		if (isEqual && pixels[0] !== 0) return Math.round(pixels[0]);
 		else return null;
 	}
 
