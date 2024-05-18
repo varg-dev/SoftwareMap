@@ -135,7 +135,7 @@ export class SceneManager {
 		if (!this.sceneCanBeDrawn() || this.glyphToCsvMapping === undefined || this.glyphCount === undefined) return;
 		if (this.xAndYBounds === undefined) this.findAttributeBounds();
 
-		// TODO: I smell a memory leak here because the previously used glyphs are not being disposed of properly
+		this.disposeObject3D(this.glyphGroup);
 		this.glyphGroup.clear();
 		this.materials = [];
 
@@ -454,5 +454,32 @@ export class SceneManager {
 			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
 		}
+	}
+
+	protected disposeObject3D(object: THREE.Object3D) {
+		object.traverse((currentObject: THREE.Object3D) => {
+			if (Object.hasOwn(currentObject, 'geometry'))
+				// @ts-expect-error TS2339; explicitly checks for existence of property
+				currentObject.geometry.dispose();
+
+			if (Object.hasOwn(currentObject, 'material'))
+				// @ts-expect-error TS2339; explicitly checks for existence of property
+				if (currentObject.material instanceof Array) {
+					// @ts-expect-error TS2339; explicitly checks for existence of property
+					for (const material of currentObject.material) {
+						material.dispose();
+					}
+				} else {
+					// @ts-expect-error TS2339; explicitly checks for existence of property
+					currentObject.material.dispose();
+				}
+
+			// @ts-expect-error TS2339; explicitly checks for existence of property
+			if (Object.hasOwn(currentObject, 'dispose')) currentObject.dispose();
+
+			if (Object.hasOwn(currentObject, 'shadow'))
+				// @ts-expect-error TS2339; explicitly checks for existence of property
+				currentObject.shadow.dispose();
+		});
 	}
 }
