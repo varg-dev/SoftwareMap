@@ -304,7 +304,6 @@ export class SceneManager {
 		}
 		// If more distinct values of the csv column mapped to glyphType exist (or the values are too large), we wrap around (while preventing NaN)
 		if (this.glyphAtlas?.json.types.length === 1) {
-			console.warn('The selected glyph atlas only provides one type of glyph. The mapping of glyphType has no effect.');
 			glyphTypeSelectionValue = 0;
 		}
 		else if (glyphTypeSelectionValue >= this.glyphAtlas!.json.types.length) {

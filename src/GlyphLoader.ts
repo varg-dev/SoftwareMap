@@ -43,6 +43,10 @@ export class GlyphLoader {
 
 		this.checkAndReplaceInvalidCharacters(json);
 
+		if (json.types.length === 1) {
+			console.warn('The selected glyph atlas only provides one type of glyph. The mapping of glyphType has no effect.');
+		}
+
 		const gltf = await this.loadGLTF(json);
 
 		return { json: json, glyphs: gltf.glyphs, largestExtent: gltf.largestExtent };
