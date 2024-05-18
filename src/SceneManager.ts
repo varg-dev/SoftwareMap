@@ -13,6 +13,8 @@ type CsvAndIndices = {
 export class SceneManager {
 	readonly scene: THREE.Scene;
 	readonly renderingManager: RenderingManager;
+	protected glyphLoader: GlyphLoader;
+	protected pickingHandler: PickingHandler;
 
 	protected staticElements: THREE.Group;
 	protected spotLight!: THREE.SpotLight;
@@ -22,13 +24,10 @@ export class SceneManager {
 	protected _csv: CsvAndIndices | undefined;
 
 	protected glyphAtlas: GlyphAtlas | undefined;
-	protected glyphLoader: GlyphLoader;
 	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
 	protected glyphCount: Array<number> | undefined;
 	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
-
-	protected pickingHandler: PickingHandler;
 
 	protected _mappings: Mappings | undefined;
 	protected xAndYBounds: { min: THREE.Vector2, max: THREE.Vector2 } | undefined;
