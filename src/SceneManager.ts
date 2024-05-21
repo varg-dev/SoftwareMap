@@ -269,7 +269,8 @@ export class SceneManager {
 			+ shader.substring(0, shader.indexOf('}'))
 			+
 			`gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
-			gl_Position.w -= float(distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition) > lodThreshold * (lod + 1.) && lod < maxLod) * gl_Position.w;
+			float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition);
+			gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;
 			idPass = idAttribute;\n`
 			+ shader.substring(shader.indexOf('}')));
 	}
