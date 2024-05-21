@@ -232,7 +232,6 @@ export class SceneManager {
 				'varying float idPass;\n'
 				+ 'layout(location = 1) out vec4 id;\n'
 				+ parameters.fragmentShader.substring(0, insertionPoint)
-				// Add one to distinguish from background
 				+ 'id = vec4(vec3(idPass), 1.);\n'
 				+ parameters.fragmentShader.substring(insertionPoint);
 
