@@ -1,0 +1,66 @@
+{
+  "modelFile": "glyphs.glb",
+  "attributes": [],
+  "types": [
+    {
+      "baseModel": "Pawn-1.005",
+      "variants": [
+        {
+          "name": [
+            "Chess-Pawn.005",
+            "Pawn-2.005",
+            "Pawn-1.005"
+          ]
+        }
+      ]
+    },
+    {
+      "baseModel": "Pawn-1.004",
+      "variants": [
+        {
+          "name": [
+            "Chess-Pawn.004",
+            "Pawn-2.004",
+            "Pawn-1.004"
+          ]
+        }
+      ]
+    },
+    {
+      "baseModel": "Pawn-1.003",
+      "variants": [
+        {
+          "name": [
+            "Chess-Pawn.003",
+            "Pawn-2.003",
+            "Pawn-1.003"
+          ]
+        }
+      ]
+    },
+    {
+      "baseModel": "Pawn-1.002",
+      "variants": [
+        {
+          "name": [
+            "Chess-Pawn.002",
+            "Pawn-2.002",
+            "Pawn-1.002"
+          ]
+        }
+      ]
+    },
+    {
+      "baseModel": "Pawn-1.001",
+      "variants": [
+        {
+          "name": [
+            "Chess-Pawn.001",
+            "Pawn-2.001",
+            "Pawn-1.001"
+          ]
+        }
+      ]
+    }
+  ]
+}

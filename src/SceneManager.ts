@@ -164,7 +164,7 @@ export class SceneManager {
 	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>): void {
 		const geometry = new THREE.InstancedBufferGeometry();
 		geometry.index = mesh.geometry.index!.clone();
-		// Since all glyphs in lodDummy.json have the same geometry, mesh.geometry is the same object for all colors. This requires a deep-ish copy to not override the attributes set for previous iterations.
+		// If all glyphs in the selected atlas have the same geometry, mesh.geometry is the same object for all colors. This requires a deep-ish copy to not override the attributes set for previous iterations.
 		geometry.attributes = { ...mesh.geometry.attributes };
 		geometry.instanceCount = count;
 
@@ -417,6 +417,8 @@ export class SceneManager {
 			const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
 
 			for (const entry of this.instancedGlyphs) {
+				if (entry === undefined) continue;
+
 				for (const mesh of entry.meshes) {
 					mesh.scale.set(scale, scale, scale);
 				}

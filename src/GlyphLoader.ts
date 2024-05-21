@@ -3,7 +3,6 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 export type Glyph = {
 	baseModel: string,
-	name: string,
 	variants: Array<{name: Array<string>} & Record<string, number>>
 };
 
@@ -61,29 +60,12 @@ export class GlyphLoader {
 		gltf.scene.traverse((object: THREE.Object3D) => {
 			let nameExists = false;
 			for (let i = 0; i < json.types.length; ++i) {
-				nameExists = nameExists || object.name.startsWith(json.types[i].name);
-				if (nameExists) break;
-			}
-
-			if (nameExists) {
-				nameExists = false;
-
-				outerLoop:
-				for (const type of json.types) {
-					if (type.name === object.name) {
-						nameExists = true;
-						break;
-					}
-
-					if (type.variants) {
-						for (const variant of type.variants) {
-							if (variant.name.includes(object.name)) {
-								nameExists = true;
-								break outerLoop;
-							}
-						}
+				for (let j = 0; j < json.types[i].variants.length; ++j) {
+					for (let k = 0; k < json.types[i].variants[j].name.length; ++k) {
+						nameExists = nameExists || object.name === json.types[i].variants[j].name[k];
 					}
 				}
+				if (nameExists) break;
 			}
 
 			if (nameExists) glyphs.push(object);
@@ -106,12 +88,6 @@ export class GlyphLoader {
 		let includesInvalidChars = false;
 
 		for (let i = 0; i < json.types.length; ++i) {
-			if (includesInvalid(json.types[i].name)) {
-				includesInvalidChars = true;
-				// Fixes https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726
-				json.types[i].name = THREE.PropertyBinding.sanitizeNodeName(json.types[i].name);
-			}
-
 			if (includesInvalid(json.types[i].baseModel)) {
 				includesInvalidChars = true;
 				json.types[i].baseModel = THREE.PropertyBinding.sanitizeNodeName(json.types[i].baseModel);
