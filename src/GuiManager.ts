@@ -173,7 +173,7 @@ export class GuiManager {
 		if (this._componentStatus.basicMappings) {
 			this.basicMappingsGui = this.mainGui.addFolder('Basic mappings');
 
-			this.basicMappingsGui.add(this.mappings.basicMappings, 'size').name('Size multiplier').min(0.01).max(1)
+			this.basicMappingsGui.add(this.mappings.basicMappings, 'size').name('Size multiplier').min(0.01).max(0.2)
 				.onChange(async () => { await this.sceneManager.update( { basicMappings: { size: true } } ); });
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'glyphAtlas', this.getGlyphAtlasNames()).name('Glyph atlas')
 				.onChange( async () => { await this.sceneManager.update( { basicMappings: { glyphAtlas: true } } ); this.componentStatus = { requiredMappings: true }; });
