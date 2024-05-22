@@ -107,6 +107,7 @@ export class SceneManager {
 			
 			void main() {
 				id = vec4(vec3(0.), 1.);
+				color = vec4(vec3(0.), 0.);
 			}
 			`,
 			glslVersion: THREE.GLSL3
