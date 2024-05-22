@@ -223,10 +223,26 @@ export class SceneManager {
 		depthMaterial.userData = { lodThreshold: { value: 0.75 } };
 		distanceMaterial.userData = { lodThreshold: { value: 0.75 } };
 
-		const onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
+		const onBeforeCompileMaterial = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
-			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader);
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, false);
+
+			const insertionPoint = parameters.fragmentShader.indexOf('}');
+			parameters.fragmentShader =
+				'varying float idPass;\n'
+				+ 'layout(location = 1) out vec4 id;\n'
+				+ parameters.fragmentShader.substring(0, insertionPoint)
+				+ 'id = vec4(vec3(idPass), 1.);\n'
+				+ parameters.fragmentShader.substring(insertionPoint);
+
+			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
+		};
+		const onBeforeCompileAuxiliaryMaterial = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
+			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
+			parameters.uniforms['actualCameraPosition'] = { value: this.renderingManager.camera.position };
+
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, true);
 
 			const insertionPoint = parameters.fragmentShader.indexOf('}');
 			parameters.fragmentShader =
@@ -239,9 +255,9 @@ export class SceneManager {
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
 		};
 
-		material.onBeforeCompile = onBeforeCompile;
-		depthMaterial.onBeforeCompile = onBeforeCompile;
-		distanceMaterial.onBeforeCompile = onBeforeCompile;
+		material.onBeforeCompile = onBeforeCompileMaterial;
+		depthMaterial.onBeforeCompile = onBeforeCompileAuxiliaryMaterial;
+		distanceMaterial.onBeforeCompile = onBeforeCompileAuxiliaryMaterial;
 
 		this.materials!.push(material);
 		this.materials!.push(depthMaterial);
@@ -257,21 +273,28 @@ export class SceneManager {
 	/**
 	 * Adds code enabling the position offset and LoD passed via attribute in the given GLSL shader.
 	 * @param shader The shader to augment
+	 * @param isAuxiliaryMaterial Whether the shader is a depth or distance material
 	 * @protected
 	 */
-	protected addPositionOffsetAndLoDToShader(shader: string): string {
+	protected addPositionOffsetAndLoDToShader(shader: string, isAuxiliaryMaterial: boolean): string {
 		return (
 			`attribute float idAttribute;
 			attribute vec2 positionOffset;
 			attribute float lod;
 			attribute float maxLod;
-			uniform float lodThreshold;
-			varying float idPass;\n`
+			uniform float lodThreshold;\n`
+			/*
+			Only depth and distance materials need this uniform of the actual camera position, as the shadow's lod
+			will otherwise be calculated using the distance to the light
+		 	*/
+			+ (isAuxiliaryMaterial ? `uniform vec3 actualCameraPosition;\n` : `\n`)
+			+ `varying float idPass;\n`
 			+ shader.substring(0, shader.indexOf('}'))
 			+
 			`gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
-			float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition);
-			gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;
+			float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), ` + (isAuxiliaryMaterial ? `actualCameraPosition` : `cameraPosition`) + `);\n`
+			+
+			`gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;
 			idPass = idAttribute;\n`
 			+ shader.substring(shader.indexOf('}')));
 	}
