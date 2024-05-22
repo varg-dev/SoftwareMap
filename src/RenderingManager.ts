@@ -45,6 +45,7 @@ export class RenderingManager {
 		// The controls need a correct depth texture. By sharing the texture created by the WorldInHandControls, rendering to this.renderTarget also renders to this depth texture.
 		this.multisampledRenderTarget.depthTexture = this.controls.navigationRenderTarget.depthTexture;
 		this.simpleRenderTarget = new THREE.WebGLRenderTarget(size.x, size.y, { format: THREE.RGBAFormat, type: THREE.FloatType });
+		this.simpleRenderTarget.texture.dispose();
 		this.simpleRenderTarget.texture = this.multisampledRenderTarget.textures[1];
 		// This probably sets up the framebuffer internally. Either way, this is necessary to later read from this render target.
 		this.renderer.setRenderTarget(this.simpleRenderTarget);
