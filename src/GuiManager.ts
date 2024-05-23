@@ -152,6 +152,7 @@ export class GuiManager {
 
 	public set glyphAtlasAxes(value: Array<string>) {
 		this._glyphAtlasAxes = value;
+		this.componentStatus = { optionalMappings: true };
 	}
 
 	public set componentStatus(value: ComponentStatusUpdate) {
@@ -176,7 +177,11 @@ export class GuiManager {
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'size').name('Size multiplier').min(0.01).max(0.2)
 				.onChange(async () => { await this.sceneManager.update( { basicMappings: { size: true } } ); });
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'glyphAtlas', this.getGlyphAtlasNames()).name('Glyph atlas')
-				.onChange( async () => { await this.sceneManager.update( { basicMappings: { glyphAtlas: true } } ); this.componentStatus = { requiredMappings: true }; });
+				.onChange( async () => {
+					await this.sceneManager.update( { basicMappings: { glyphAtlas: true } } );
+					this.componentStatus = { requiredMappings: true };
+					if (this.sceneManager.glyphAtlas !== undefined) this.glyphAtlasAxes = this.sceneManager.glyphAtlas.json.attributes;
+				});
 		} else {
 			this.basicMappingsGui?.destroy();
 			this.basicMappingsGui = undefined;

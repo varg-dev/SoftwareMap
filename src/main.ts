@@ -4,7 +4,7 @@ import {GuiManager} from './GuiManager.ts';
 import {type CSV} from './SceneManager.ts';
 
 const renderingManager = new RenderingManager();
-const guiHandler = new GuiManager(renderingManager);
+const guiManager = new GuiManager(renderingManager);
 
 const fileUpload = document.getElementById('fileUpload') as HTMLInputElement;
 
@@ -21,8 +21,8 @@ async function checkAndLoadCsv() {
 
 	removeLongestCommonPrefix(csv);
 
-	guiHandler.csvAttributes = csv[0];
-	guiHandler.componentStatus = { basicMappings: true };
+	guiManager.csvAttributes = csv[0];
+	guiManager.componentStatus = { basicMappings: true };
 	renderingManager.sceneManager.csv = csv;
 }
 

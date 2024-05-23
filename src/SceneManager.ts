@@ -23,7 +23,7 @@ export class SceneManager {
 
 	protected _csv: CsvAndIndices | undefined;
 
-	protected glyphAtlas: GlyphAtlas | undefined;
+	protected _glyphAtlas: GlyphAtlas | undefined;
 	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
 	protected glyphCount: Array<number> | undefined;
 	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
@@ -119,7 +119,7 @@ export class SceneManager {
 	public set csv(value: CSV) {
 		this._csv = { csv: value };
 
-		if (this.glyphAtlas === undefined) return;
+		if (this._glyphAtlas === undefined) return;
 		if (this._mappings !== undefined) this.findAttributeBounds();
 
 		this.calculateIndicesForGlyphs();
@@ -144,7 +144,7 @@ export class SceneManager {
 		for (const [index, count] of this.glyphCount.entries()) {
 			if (count <= 0) continue;
 
-			const glyph = this.glyphAtlas!.glyphs[index];
+			const glyph = this._glyphAtlas!.glyphs[index];
 
 			const meshes = new Array<THREE.Mesh>();
 			const positions = new Array<THREE.InstancedBufferAttribute>();
@@ -212,7 +212,7 @@ export class SceneManager {
 		instancedMesh.frustumCulled = false;
 		instancedMesh.castShadow = true;
 
-		const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
+		const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
 		instancedMesh.scale.set(scale, scale, scale);
 
 		/*
@@ -303,7 +303,7 @@ export class SceneManager {
 		if (!this.sceneCanBeDrawn()) return;
 
 		this.glyphToCsvMapping = new Array(this._csv!.csv.length - 1);
-		this.glyphCount = new Array<number>(this.glyphAtlas!.glyphs.length).fill(0);
+		this.glyphCount = new Array<number>(this._glyphAtlas!.glyphs.length).fill(0);
 
 		for (const [index, row] of this._csv!.csv.entries()) {
 			if (index === 0) continue;
@@ -327,17 +327,17 @@ export class SceneManager {
 			glyphTypeSelectionValue = Math.round(glyphTypeSelectionValue);
 		}
 		// If more distinct values of the csv column mapped to glyphType exist (or the values are too large), we wrap around (while preventing NaN)
-		if (this.glyphAtlas?.json.types.length === 1) {
+		if (this._glyphAtlas?.json.types.length === 1) {
 			glyphTypeSelectionValue = 0;
 		}
-		else if (glyphTypeSelectionValue >= this.glyphAtlas!.json.types.length) {
+		else if (glyphTypeSelectionValue >= this._glyphAtlas!.json.types.length) {
 			console.warn('The value used to select the glyph type (' + glyphTypeSelectionValue + ') is larger than the amount of available types. This value will be wrapped around.');
-			glyphTypeSelectionValue %= this.glyphAtlas!.json.types.length - 1;
+			glyphTypeSelectionValue %= this._glyphAtlas!.json.types.length - 1;
 		}
 
 		let largestValidVariantIndex = -1;
 
-		const glyphType = this.glyphAtlas!.json.types[glyphTypeSelectionValue];
+		const glyphType = this._glyphAtlas!.json.types[glyphTypeSelectionValue];
 		for (const [index, variant] of glyphType.variants.entries()) {
 			let variantIsValid = true;
 
@@ -345,7 +345,7 @@ export class SceneManager {
 				if (key === 'name') continue;
 				if (this._mappings!.optionalMappings[key] === undefined) continue;
 
-				if (Number(csvRow[csvRow.indexOf(this._mappings!.optionalMappings[key])]) < (value as number)) {
+				if (Number(csvRow[this._csv!.csv[0].indexOf(this._mappings!.optionalMappings[key])]) < (value as number)) {
 					variantIsValid = false;
 					break;
 				}
@@ -365,7 +365,7 @@ export class SceneManager {
 
 		const indices = new Array<number>();
 		for (const name of selectedGlyphName) {
-			indices.push(this.glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return name === value.name; } ));
+			indices.push(this._glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return name === value.name; } ));
 		}
 		return indices;
 	}
@@ -408,8 +408,12 @@ export class SceneManager {
             && this._mappings.requiredMappings.positionX !== ''
             && this._mappings.requiredMappings.positionY !== ''
             && this._mappings.requiredMappings.glyphType !== ''
-            && this.glyphAtlas !== undefined
+            && this._glyphAtlas !== undefined
 		);
+	}
+
+	public get glyphAtlas() {
+		return this._glyphAtlas;
 	}
 
 	public set mappings(value: Mappings) {
@@ -438,7 +442,7 @@ export class SceneManager {
 		if (value.basicMappings?.size) {
 			if (this.instancedGlyphs === undefined) return;
 
-			const scale = this._mappings!.basicMappings.size / this.glyphAtlas!.largestExtent;
+			const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
 
 			for (const entry of this.instancedGlyphs) {
 				if (entry === undefined) continue;
@@ -452,7 +456,7 @@ export class SceneManager {
 		if (value.basicMappings?.glyphAtlas) {
 			if (this._mappings?.basicMappings.glyphAtlas !== undefined) {
 				const possibleGlyphAtlas = await this.glyphLoader.getGlyphAtlas(this._mappings?.basicMappings.glyphAtlas + '.json');
-				if (possibleGlyphAtlas !== null) this.glyphAtlas = possibleGlyphAtlas;
+				if (possibleGlyphAtlas !== null) this._glyphAtlas = possibleGlyphAtlas;
 			}
 			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
