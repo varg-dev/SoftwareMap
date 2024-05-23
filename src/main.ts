@@ -33,7 +33,7 @@ function removeLongestCommonPrefix(csv: CSV) {
 	outerLoop:
 	for (let charIndex = 0; charIndex < csv[1][0].length; ++charIndex) {
 		for (let line = 2; line < csv.length; ++line) {
-			if (csv[line][0][charIndex] !== csv[1][0][charIndex]) {
+			if (csv[line][0][charIndex] !== csv[1][0][charIndex] && !csv[line][0].includes('___Landmark')) {
 				break outerLoop;
 			}
 		}
@@ -42,6 +42,7 @@ function removeLongestCommonPrefix(csv: CSV) {
 	}
 
 	for (let line = 1; line < csv.length; ++line) {
+		if (csv[line][0].includes('___Landmark')) return;
 		csv[line][0] = csv[line][0].substring(indexAfterPrefix);
 	}
 }

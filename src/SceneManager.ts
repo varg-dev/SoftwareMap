@@ -335,32 +335,37 @@ export class SceneManager {
 			glyphTypeSelectionValue %= this._glyphAtlas!.json.types.length - 1;
 		}
 
-		let largestValidVariantIndex = -1;
-
-		const glyphType = this._glyphAtlas!.json.types[glyphTypeSelectionValue];
-		for (const [index, variant] of glyphType.variants.entries()) {
-			let variantIsValid = true;
-
-			for (const [key, value] of Object.entries(variant)) {
-				if (key === 'name') continue;
-				if (this._mappings!.optionalMappings[key] === undefined) continue;
-
-				if (Number(csvRow[this._csv!.csv[0].indexOf(this._mappings!.optionalMappings[key])]) < (value as number)) {
-					variantIsValid = false;
-					break;
-				}
-			}
-
-			if (variantIsValid) largestValidVariantIndex = index;
-		}
-
 		let selectedGlyphName = new Array<string>();
 
-		if (largestValidVariantIndex === -1) {
-			console.warn('No valid variant could be found for the current row ' + csvRow + '. The base model of the selected type will be used.');
-			selectedGlyphName.push(glyphType.baseModel);
-		} else {
-			selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
+		if (csvRow[0].includes('___Landmark')) {
+			selectedGlyphName.push(this._glyphAtlas!.json.landmark);
+		}
+		else {
+			let largestValidVariantIndex = -1;
+
+			const glyphType = this._glyphAtlas!.json.types[glyphTypeSelectionValue];
+			for (const [index, variant] of glyphType.variants.entries()) {
+				let variantIsValid = true;
+
+				for (const [key, value] of Object.entries(variant)) {
+					if (key === 'name') continue;
+					if (this._mappings!.optionalMappings[key] === undefined) continue;
+
+					if (Number(csvRow[this._csv!.csv[0].indexOf(this._mappings!.optionalMappings[key])]) < (value as number)) {
+						variantIsValid = false;
+						break;
+					}
+				}
+
+				if (variantIsValid) largestValidVariantIndex = index;
+			}
+
+			if (largestValidVariantIndex === -1) {
+				console.warn('No valid variant could be found for the current row ' + csvRow + '. The base model of the selected type will be used.');
+				selectedGlyphName.push(glyphType.baseModel);
+			} else {
+				selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
+			}
 		}
 
 		const indices = new Array<number>();

@@ -9,6 +9,7 @@ export type Glyph = {
 export type GlyphJson = {
 	attributes: Array<string>,
 	modelFile: string,
+	landmark: string,
 	types: Array<Glyph>
 };
 
@@ -57,15 +58,18 @@ export class GlyphLoader {
 
 		const glyphs = new Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>();
 
+		// Only return glyphs that are specified in the glyph atlas json
 		gltf.scene.traverse((object: THREE.Object3D) => {
 			let nameExists = false;
-			for (let i = 0; i < json.types.length; ++i) {
-				for (let j = 0; j < json.types[i].variants.length; ++j) {
-					for (let k = 0; k < json.types[i].variants[j].name.length; ++k) {
+
+			if (object.name === json.landmark) nameExists = true;
+
+			for (let i = 0; i < json.types.length && !nameExists; ++i) {
+				for (let j = 0; j < json.types[i].variants.length && !nameExists; ++j) {
+					for (let k = 0; k < json.types[i].variants[j].name.length && !nameExists; ++k) {
 						nameExists = nameExists || object.name === json.types[i].variants[j].name[k];
 					}
 				}
-				if (nameExists) break;
 			}
 
 			if (nameExists) glyphs.push(object);
