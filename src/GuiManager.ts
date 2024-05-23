@@ -152,7 +152,7 @@ export class GuiManager {
 
 	public set glyphAtlasAxes(value: Array<string>) {
 		this._glyphAtlasAxes = value;
-		this.componentStatus = { optionalMappings: true };
+		this.componentStatus = { optionalMappings: this._glyphAtlasAxes.length !== 0 };
 	}
 
 	public set componentStatus(value: ComponentStatusUpdate) {
