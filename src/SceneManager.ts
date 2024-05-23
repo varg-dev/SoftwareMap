@@ -219,9 +219,9 @@ export class SceneManager {
 		Add positional offset to materials
 		 */
 
-		material.userData = { lodThreshold: { value: 0.75 } };
-		depthMaterial.userData = { lodThreshold: { value: 0.75 } };
-		distanceMaterial.userData = { lodThreshold: { value: 0.75 } };
+		material.userData = { lodThreshold: { value: this._mappings!.lodThreshold } };
+		depthMaterial.userData = { lodThreshold: { value: this._mappings!.lodThreshold } };
+		distanceMaterial.userData = { lodThreshold: { value: this._mappings!.lodThreshold } };
 
 		const onBeforeCompileMaterial = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
@@ -431,8 +431,7 @@ export class SceneManager {
 	}
 
 	public async update(value: MappingsUpdate): Promise<void> {
-		if (value.lodThreshold) {
-			if (this.materials === undefined) return;
+		if (value.lodThreshold && this.materials !== undefined) {
 			for (const material of this.materials) {
 				material.userData.lodThreshold.value = this._mappings!.lodThreshold;
 			}
@@ -444,9 +443,7 @@ export class SceneManager {
 		if (value.labelSettings?.labelOffset) {
 			this.pickingHandler.labelOffset = this._mappings!.labelSettings.labelOffset;
 		}
-		if (value.basicMappings?.size) {
-			if (this.instancedGlyphs === undefined) return;
-
+		if (value.basicMappings?.size && this.instancedGlyphs !== undefined) {
 			const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
 
 			for (const entry of this.instancedGlyphs) {
@@ -485,7 +482,7 @@ export class SceneManager {
 			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
 		}
-		if (value.optionalMappings !== undefined) {
+		if (value.optionalMappings) {
 			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
 		}

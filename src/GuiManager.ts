@@ -65,8 +65,8 @@ export class GuiManager {
 	protected sceneManager: SceneManager;
 
 	protected mainGui: GUI;
-	protected labelSettingsGui: GUI;
-	protected shadowSettingsGui: GUI;
+	protected labelSettingsGui!: GUI;
+	protected shadowSettingsGui!: GUI;
 	protected basicMappingsGui: GUI | undefined;
 	protected requiredMappingsGui: GUI | undefined;
 	protected optionalMappingsGui: GUI | undefined;
@@ -112,26 +112,35 @@ export class GuiManager {
 		// (Intended) shallow-copy, will reference the same memory!
 		this.sceneManager.mappings = this.mappings;
 
+		this.addMainGui();
+	}
+
+	protected addMainGui(): void {
 		this.mainGui.add({ reset: () => this.renderingManager.resetCamera() }, 'reset').name('Reset camera');
 
 		this.mainGui.add(this.mappings, 'lodThreshold').name('Distance threshold for LoD').min(0).max(3).onChange(async () => {
 			await this.sceneManager.update({ lodThreshold: true });
+			this.updateURL();
 		});
 
 		this.shadowSettingsGui = this.mainGui.addFolder('Shadow map settings');
 		this.shadowSettingsGui.add(this.mappings.shadowMapSettings, 'enabled').name('Use shadow map').onChange(async () => {
 			await this.sceneManager.update({ shadowMapSettings: { enabled: true } });
+			this.updateURL();
 		});
 		this.shadowSettingsGui.add(this.mappings.shadowMapSettings, 'sizeExponent').min(8).max(15).step(1).name('Shadow map size exponent').onChange(async () => {
 			await this.sceneManager.update({ shadowMapSettings: { sizeExponent: true } });
+			this.updateURL();
 		});
 
 		this.labelSettingsGui = this.mainGui.addFolder('Label settings');
 		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelSize').min(0.005).max(0.05).onChange(async () => {
 			await this.sceneManager.update({ labelSettings: { labelSize: true } });
+			this.updateURL();
 		});
 		this.labelSettingsGui.add(this.mappings.labelSettings, 'labelOffset').min(0.01).max(0.1).onChange(async () => {
 			await this.sceneManager.update( { labelSettings: { labelOffset: true } } );
+			this.updateURL();
 		});
 	}
 
@@ -175,13 +184,9 @@ export class GuiManager {
 			this.basicMappingsGui = this.mainGui.addFolder('Basic mappings');
 
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'size').name('Size multiplier').min(0.01).max(0.2)
-				.onChange(async () => { await this.sceneManager.update( { basicMappings: { size: true } } ); });
+				.onChange(async () => { await this.sceneManager.update( { basicMappings: { size: true } } ); this.updateURL(); });
 			this.basicMappingsGui.add(this.mappings.basicMappings, 'glyphAtlas', this.getGlyphAtlasNames()).name('Glyph atlas')
-				.onChange( async () => {
-					await this.sceneManager.update( { basicMappings: { glyphAtlas: true } } );
-					this.componentStatus = { requiredMappings: true };
-					if (this.sceneManager.glyphAtlas !== undefined) this.glyphAtlasAxes = this.sceneManager.glyphAtlas.json.attributes;
-				});
+				.onChange( async () => { await this.glyphAtlasChange(); this.updateURL(); });
 		} else {
 			this.basicMappingsGui?.destroy();
 			this.basicMappingsGui = undefined;
@@ -193,11 +198,11 @@ export class GuiManager {
 			this.requiredMappingsGui = this.mainGui.addFolder('Required mappings');
 
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionX', this._csvAttributes).name('x position')
-				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionX: true } } ); });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionX: true } } ); this.updateURL(); });
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'positionY', this._csvAttributes).name('y position')
-				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionY: true } } ); });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { positionY: true } } ); this.updateURL(); });
 			this.requiredMappingsGui.add(this.mappings.requiredMappings, 'glyphType', this._csvAttributes).name('Glyph type')
-				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { glyphType: true } } ); });
+				.onChange(async () => { await this.sceneManager.update( { requiredMappings: { glyphType: true } } ); this.updateURL(); });
 		} else {
 			this.requiredMappingsGui?.destroy();
 			this.requiredMappingsGui = undefined;
@@ -210,7 +215,7 @@ export class GuiManager {
 
 			for (const axis of this._glyphAtlasAxes) {
 				this.optionalMappingsGui.add(this.mappings.optionalMappings, axis, this._csvAttributes)
-					.onChange(async () => { await this.sceneManager.update( { optionalMappings: axis } ); });
+					.onChange(async () => { await this.sceneManager.update( { optionalMappings: axis } ); this.updateURL(); });
 			}
 		} else {
 			this.optionalMappingsGui?.destroy();
@@ -246,5 +251,34 @@ export class GuiManager {
 				delete this.mappings.optionalMappings[key];
 			}
 		}
+	}
+
+	public async parseQuery(query: URLSearchParams): Promise<void> {
+		const base64 = query.get('base64');
+		if (base64 === null) return;
+		this.mappings = JSON.parse(atob(base64));
+		this.sceneManager.mappings = this.mappings;
+		this.mainGui = new GUI({title: 'Options'});
+		this.addMainGui();
+		await this.glyphAtlasChange();
+		this.componentStatus = { basicMappings: false, requiredMappings: false, optionalMappings: false };
+		this.componentStatus = { basicMappings: true, requiredMappings: true, optionalMappings: this._glyphAtlasAxes.length !== 0 };
+		await this.sceneManager.update({
+			lodThreshold: true,
+			labelSettings: { labelSize: true, labelOffset: true },
+			shadowMapSettings: { sizeExponent: true, enabled: true },
+		});
+	}
+
+	protected updateURL(): void {
+		const base64 = btoa(JSON.stringify(this.mappings));
+		history.replaceState(null, '', '?base64=' + base64);
+		console.log(window.location.href);
+	}
+
+	protected async glyphAtlasChange(): Promise<void> {
+		await this.sceneManager.update( { basicMappings: { glyphAtlas: true } } );
+		this.componentStatus = { requiredMappings: true };
+		if (this.sceneManager.glyphAtlas !== undefined) this.glyphAtlasAxes = this.sceneManager.glyphAtlas.json.attributes;
 	}
 }

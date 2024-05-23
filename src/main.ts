@@ -8,6 +8,8 @@ const guiManager = new GuiManager(renderingManager);
 
 const fileUpload = document.getElementById('fileUpload') as HTMLInputElement;
 
+let isFirstCSVLoad = true;
+
 await checkAndLoadCsv();
 
 fileUpload.addEventListener('change', checkAndLoadCsv);
@@ -24,6 +26,11 @@ async function checkAndLoadCsv() {
 	guiManager.csvAttributes = csv[0];
 	guiManager.componentStatus = { basicMappings: true };
 	renderingManager.sceneManager.csv = csv;
+
+	if (isFirstCSVLoad) {
+		await guiManager.parseQuery(new URLSearchParams(window.location.search));
+		isFirstCSVLoad = false;
+	}
 }
 
 function removeLongestCommonPrefix(csv: CSV) {
