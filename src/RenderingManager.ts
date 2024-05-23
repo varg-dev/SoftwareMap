@@ -16,7 +16,7 @@ export class RenderingManager {
 
 	readonly sceneManager: SceneManager;
 
-	protected controls!: WorldInHandControls;
+	readonly controls!: WorldInHandControls;
 
 	constructor() {
 		this.updateRequested = false;

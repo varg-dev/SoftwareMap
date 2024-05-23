@@ -1,6 +1,7 @@
 import GUI, {Controller} from 'lil-gui';
 import {RenderingManager} from './RenderingManager.ts';
 import {SceneManager} from './SceneManager.ts';
+import * as THREE from 'three';
 
 export type Mappings = {
 	lodThreshold: number,
@@ -113,6 +114,8 @@ export class GuiManager {
 		this.sceneManager.mappings = this.mappings;
 
 		this.addMainGui();
+
+		this.renderingManager.controls.addEventListener('changeEnd', () => this.updateURL());
 	}
 
 	protected addMainGui(): void {
@@ -256,7 +259,10 @@ export class GuiManager {
 	public async parseQuery(query: URLSearchParams): Promise<void> {
 		const base64 = query.get('base64');
 		if (base64 === null) return;
-		this.mappings = JSON.parse(atob(base64));
+		const state = JSON.parse(atob(base64));
+		this.mappings = state.mappings;
+		this.renderingManager.camera.position.set(state.cameraPosition.x, state.cameraPosition.y, state.cameraPosition.z);
+		this.renderingManager.controls.reloadCamera(this.renderingManager.camera.position.clone().add(state.cameraDirection));
 		this.sceneManager.mappings = this.mappings;
 		this.mainGui = new GUI({title: 'Options'});
 		this.addMainGui();
@@ -271,9 +277,13 @@ export class GuiManager {
 	}
 
 	protected updateURL(): void {
-		const base64 = btoa(JSON.stringify(this.mappings));
+		const state = {
+			mappings: this.mappings,
+			cameraPosition: this.renderingManager.camera.position,
+			cameraDirection: this.renderingManager.camera.getWorldDirection(new THREE.Vector3)
+		};
+		const base64 = btoa(JSON.stringify(state));
 		history.replaceState(null, '', '?base64=' + base64);
-		console.log(window.location.href);
 	}
 
 	protected async glyphAtlasChange(): Promise<void> {
