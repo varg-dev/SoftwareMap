@@ -1,11 +1,17 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
+/**
+ * The complete type of a glyph as specified by the glyph atlas JSON.
+ */
 export type Glyph = {
 	baseModel: string,
 	variants: Array<{name: Array<string>} & Record<string, number>>
 };
 
+/**
+ * The loaded glyph atlas JSON.
+ */
 export type GlyphJson = {
 	attributes: Array<string>,
 	modelFile: string,
@@ -13,14 +19,26 @@ export type GlyphJson = {
 	types: Array<Glyph>
 };
 
+/**
+ * The loaded glyph atlas JSON and the 3D models specified within. Also contains a scaling factor to normalize model size.
+ */
 export type GlyphAtlas = {
 	json: GlyphJson,
 	glyphs: Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>,
 	largestExtent: number
 };
 
+/**
+ * A class used to load a valid glyph atlas containing the corresponding JSON and the 3D models specified within from disk. Produces a {@link GlyphAtlas}.
+ */
 export class GlyphLoader {
-
+	/**
+	 * Loads the glyph atlas JSON specified by {@link path}.
+	 *
+	 * This only returns the 3D models specified in the given JSON.
+	 * If the names of the models include [invalid characters]{@link https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726}, these are replaced.
+	 * @param path A path to the JSON file to load
+	 */
 	public async getGlyphAtlas(path: string): Promise<GlyphAtlas | null> {
 		const json = (await (await fetch(path)).json()) as GlyphJson;
 
@@ -52,6 +70,11 @@ export class GlyphLoader {
 		return { json: json, glyphs: gltf.glyphs, largestExtent: gltf.largestExtent };
 	}
 
+	/**
+	 * Loads the GLTF file specified in the given {@link GlyphJson}. Only returns the 3D models that are specified in {@link json}. Also calculates the size normalization factor for the glyphs.
+	 * @param json The JSON of which to load the GLTF file
+	 * @protected
+	 */
 	protected async loadGLTF(json: GlyphJson): Promise<{ glyphs: Array<THREE.Mesh | THREE.SkinnedMesh | THREE.Group | THREE.Object3D>, largestExtent: number }> {
 		const loader = new GLTFLoader();
 		const gltf = await loader.loadAsync(json.modelFile);
@@ -75,6 +98,7 @@ export class GlyphLoader {
 			if (nameExists) glyphs.push(object);
 		});
 
+		// Find the largest extent of the largest glyph to normalize against
 		let largestExtent = Number.NEGATIVE_INFINITY;
 		for (const glyph of glyphs) {
 			largestExtent = Math.max(new THREE.Box3().setFromObject(glyph, true).getBoundingSphere(new THREE.Sphere).radius * 2, largestExtent);
@@ -82,7 +106,13 @@ export class GlyphLoader {
 
 		return { glyphs, largestExtent };
 	}
-	
+
+	/**
+	 * Replaces all illegal names in the given {@link GlyphJson}.
+	 * @see https://discourse.threejs.org/t/issue-with-gltfloader-and-objects-with-dots-in-their-name-attribute/6726
+	 * @param json
+	 * @protected
+	 */
 	protected checkAndReplaceInvalidCharacters(json: GlyphJson): void {
 		function includesInvalid(name: string): boolean {
 			// eslint-disable-next-line no-useless-escape
@@ -91,18 +121,23 @@ export class GlyphLoader {
 
 		let includesInvalidChars = false;
 
-		for (let i = 0; i < json.types.length; ++i) {
-			if (includesInvalid(json.types[i].baseModel)) {
+		if (includesInvalid(json.landmark)) {
+			includesInvalidChars = true;
+			json.landmark = THREE.PropertyBinding.sanitizeNodeName(json.landmark);
+		}
+
+		for (const type of json.types) {
+			if (includesInvalid(type.baseModel)) {
 				includesInvalidChars = true;
-				json.types[i].baseModel = THREE.PropertyBinding.sanitizeNodeName(json.types[i].baseModel);
+				type.baseModel = THREE.PropertyBinding.sanitizeNodeName(type.baseModel);
 			}
 
-			if (json.types[i].variants !== undefined) {
-				for (let j = 0; j < json.types[i].variants.length; ++j) {
-					for (let k = 0; k < json.types[i].variants[j].name.length; k++) {
-						if (includesInvalid(json.types[i].variants[j].name[k])) {
+			if (type.variants !== undefined) {
+				for (const variant of type.variants) {
+					for (let i = 0; i < variant.name.length; ++i) {
+						if (includesInvalid(variant.name[i])) {
 							includesInvalidChars = true;
-							(json.types[i].variants[j].name as Array<string>)[k] = THREE.PropertyBinding.sanitizeNodeName(json.types[i].variants[j].name[k]);
+							variant.name[i] = THREE.PropertyBinding.sanitizeNodeName(variant.name[i]);
 						}
 					}
 				}
