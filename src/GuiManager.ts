@@ -257,7 +257,7 @@ export class GuiManager {
 	}
 
 	public async parseQuery(query: URLSearchParams): Promise<void> {
-		const base64 = query.get('base64');
+		const base64 = query.get('state');
 		if (base64 === null) return;
 		const state = JSON.parse(atob(base64));
 		this.mappings = state.mappings;
@@ -283,7 +283,7 @@ export class GuiManager {
 			cameraDirection: this.renderingManager.camera.getWorldDirection(new THREE.Vector3)
 		};
 		const base64 = btoa(JSON.stringify(state));
-		history.replaceState(null, '', '?base64=' + base64);
+		history.replaceState(null, '', '?state=' + base64);
 	}
 
 	protected async glyphAtlasChange(): Promise<void> {
