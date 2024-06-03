@@ -264,6 +264,7 @@ export class GuiManager {
 		this.renderingManager.camera.position.set(state.cameraPosition.x, state.cameraPosition.y, state.cameraPosition.z);
 		this.renderingManager.controls.reloadCamera(this.renderingManager.camera.position.clone().add(state.cameraDirection));
 		this.sceneManager.mappings = this.mappings;
+		this.mainGui.destroy();
 		this.mainGui = new GUI({title: 'Options'});
 		this.addMainGui();
 		await this.glyphAtlasChange();
