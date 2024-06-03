@@ -56,7 +56,14 @@ export class PickingHandler {
 		let valueText = '';
 		for (let i = 0; i < csv[0].length; ++i) {
 			keyText += csv[0][i] + ': ';
-			valueText += this.csvRow[i];
+
+			// If i references the "Document" column...
+			if (i == 0) {
+				valueText += this.csvRow[i];
+			} else {
+				const value = Number(this.csvRow[i]);
+				valueText += Math.round(value) !== value ? value.toFixed(5) : value;
+			}
 
 			// line breaks at the end of the label text seem to make the labeling system put this line break before the last word
 			if (i < csv[0].length - 1) {
