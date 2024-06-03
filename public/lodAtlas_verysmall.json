@@ -1,6 +1,6 @@
 {
   "modelFile": "glyphs_verysmall.glb",
-  "attributes": [],
+  "attributes": [ "status" ],
   "landmark": "Pointer-1",
   "types": [
     {
@@ -9,9 +9,50 @@
         {
           "name": [
             "Chess-Pawn.005",
+            "Pawn-3.005",
+            "Pawn-1.005"
+          ],
+          "status": 0.00
+        },
+        {
+          "name": [
+            "Chess-Rook.005",
+            "Pawn-3.005",
+            "Pawn-1.005"
+          ],
+          "status": 0.17
+        },
+        {
+          "name": [
+            "Chess-Knight.005",
+            "Pawn-3.005",
+            "Pawn-1.005"
+          ],
+          "status": 0.34
+        },
+        {
+          "name": [
+            "Chess-Bishop.005",
             "Pawn-2.005",
             "Pawn-1.005"
-          ]
+          ],
+          "status": 0.51
+        },
+        {
+          "name": [
+            "Chess-Queen.005",
+            "Pawn-2.005",
+            "Pawn-1.005"
+          ],
+          "status": 0.68
+        },
+        {
+          "name": [
+            "Chess-King.005",
+            "Pawn-2.005",
+            "Pawn-1.005"
+          ],
+          "status": 0.85
         }
       ]
     },
@@ -21,9 +62,50 @@
         {
           "name": [
             "Chess-Pawn.004",
+            "Pawn-3.004",
+            "Pawn-1.004"
+          ],
+          "status": 0.00
+        },
+        {
+          "name": [
+            "Chess-Rook.004",
+            "Pawn-3.004",
+            "Pawn-1.004"
+          ],
+          "status": 0.17
+        },
+        {
+          "name": [
+            "Chess-Knight.004",
+            "Pawn-3.004",
+            "Pawn-1.004"
+          ],
+          "status": 0.34
+        },
+        {
+          "name": [
+            "Chess-Bishop.004",
             "Pawn-2.004",
             "Pawn-1.004"
-          ]
+          ],
+          "status": 0.51
+        },
+        {
+          "name": [
+            "Chess-Queen.004",
+            "Pawn-2.004",
+            "Pawn-1.004"
+          ],
+          "status": 0.68
+        },
+        {
+          "name": [
+            "Chess-King.004",
+            "Pawn-2.004",
+            "Pawn-1.004"
+          ],
+          "status": 0.85
         }
       ]
     },
@@ -33,9 +115,50 @@
         {
           "name": [
             "Chess-Pawn.003",
+            "Pawn-3.003",
+            "Pawn-1.003"
+          ],
+          "status": 0.00
+        },
+        {
+          "name": [
+            "Chess-Rook.003",
+            "Pawn-3.003",
+            "Pawn-1.003"
+          ],
+          "status": 0.17
+        },
+        {
+          "name": [
+            "Chess-Knight.003",
+            "Pawn-3.003",
+            "Pawn-1.003"
+          ],
+          "status": 0.34
+        },
+        {
+          "name": [
+            "Chess-Bishop.003",
             "Pawn-2.003",
             "Pawn-1.003"
-          ]
+          ],
+          "status": 0.51
+        },
+        {
+          "name": [
+            "Chess-Queen.003",
+            "Pawn-2.003",
+            "Pawn-1.003"
+          ],
+          "status": 0.68
+        },
+        {
+          "name": [
+            "Chess-King.003",
+            "Pawn-2.003",
+            "Pawn-1.003"
+          ],
+          "status": 0.85
         }
       ]
     },
@@ -45,9 +168,50 @@
         {
           "name": [
             "Chess-Pawn.002",
+            "Pawn-3.002",
+            "Pawn-1.002"
+          ],
+          "status": 0.00
+        },
+        {
+          "name": [
+            "Chess-Rook.002",
+            "Pawn-3.002",
+            "Pawn-1.002"
+          ],
+          "status": 0.17
+        },
+        {
+          "name": [
+            "Chess-Knight.002",
+            "Pawn-3.002",
+            "Pawn-1.002"
+          ],
+          "status": 0.34
+        },
+        {
+          "name": [
+            "Chess-Bishop.002",
             "Pawn-2.002",
             "Pawn-1.002"
-          ]
+          ],
+          "status": 0.51
+        },
+        {
+          "name": [
+            "Chess-Queen.002",
+            "Pawn-2.002",
+            "Pawn-1.002"
+          ],
+          "status": 0.68
+        },
+        {
+          "name": [
+            "Chess-King.002",
+            "Pawn-2.002",
+            "Pawn-1.002"
+          ],
+          "status": 0.85
         }
       ]
     },
@@ -57,9 +221,50 @@
         {
           "name": [
             "Chess-Pawn.001",
+            "Pawn-3.001",
+            "Pawn-1.001"
+          ],
+          "status": 0.00
+        },
+        {
+          "name": [
+            "Chess-Rook.001",
+            "Pawn-3.001",
+            "Pawn-1.001"
+          ],
+          "status": 0.17
+        },
+        {
+          "name": [
+            "Chess-Knight.001",
+            "Pawn-3.001",
+            "Pawn-1.001"
+          ],
+          "status": 0.34
+        },
+        {
+          "name": [
+            "Chess-Bishop.001",
             "Pawn-2.001",
             "Pawn-1.001"
-          ]
+          ],
+          "status": 0.51
+        },
+        {
+          "name": [
+            "Chess-Queen.001",
+            "Pawn-2.001",
+            "Pawn-1.001"
+          ],
+          "status": 0.68
+        },
+        {
+          "name": [
+            "Chess-King.001",
+            "Pawn-2.001",
+            "Pawn-1.001"
+          ],
+          "status": 0.85
         }
       ]
     }
