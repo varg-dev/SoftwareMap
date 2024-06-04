@@ -170,6 +170,18 @@ export class SceneManager {
 		geometry.attributes = { ...mesh.geometry.attributes };
 		//geometry.instanceCount = count;
 
+		const material = (mesh.material as THREE.Material).clone();
+		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; };
+		const depthMaterial = new THREE.MeshDepthMaterial();
+		const distanceMaterial = new THREE.MeshDistanceMaterial();
+
+		//const instancedMesh = new THREE.Mesh(geometry, material);
+		const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+		instancedMesh.instanceMatrix.usage = THREE.StaticDrawUsage;
+
+		const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
+		//instancedMesh.scale.set(scale, scale, scale);
+
 		/*
 		Create position offset and LoD buffers
 		 */
@@ -187,6 +199,9 @@ export class SceneManager {
 			positionOffsets[arrayIndex * 2] = position.x;
 			positionOffsets[arrayIndex * 2 + 1] = position.y;
 
+			const instanceMatrix = new THREE.Matrix4().setPosition(position.x, 0, position.y).scale(new THREE.Vector3(scale, scale, scale));
+			instancedMesh.setMatrixAt(arrayIndex, instanceMatrix);
+
 			lods[arrayIndex] = lod;
 			maxLods[arrayIndex] = mapping.glyphIndices.length - 1;
 			ids[arrayIndex] = mapping.csvRow;
@@ -203,19 +218,9 @@ export class SceneManager {
 		geometry.setAttribute('maxLod', maxLodAttribute);
 		geometry.setAttribute('idAttribute', idAttribute);
 
-		const material = (mesh.material as THREE.Material).clone();
-		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; };
-		const depthMaterial = new THREE.MeshDepthMaterial();
-		const distanceMaterial = new THREE.MeshDistanceMaterial();
-
-		//const instancedMesh = new THREE.Mesh(geometry, material);
-		const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
 		// three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
 		instancedMesh.frustumCulled = false;
 		instancedMesh.castShadow = true;
-
-		const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
-		instancedMesh.scale.set(scale, scale, scale);
 
 		/*
 		Add positional offset to materials
@@ -293,7 +298,7 @@ export class SceneManager {
 			+ `varying float idPass;\n`
 			+ shader.substring(0, shader.indexOf('}'))
 			+
-			`gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
+			`//gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
 			float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), ` + (isAuxiliaryMaterial ? `actualCameraPosition` : `cameraPosition`) + `);\n`
 			+
 			`gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;
