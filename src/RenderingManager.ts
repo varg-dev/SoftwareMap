@@ -178,4 +178,36 @@ export class RenderingManager {
 		this.renderer.setRenderTarget(null);
 		this.renderer.render(this.copyScene, this.camera);
 	}
+
+	public benchmark(): void {
+		console.log('\n----------\nStarting benchmark...\n----------\n\n');
+
+		const numFrames = 500;
+		let remainingFrames = Math.round(numFrames * 1.1);
+		let begin: number;
+		let end: number;
+		const rotationMatrix = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), 2 * Math.PI / Math.round(numFrames * 1.1));
+		const origin = new THREE.Vector3(0, 0, 0);
+
+		this.resetCamera();
+
+		const callback = () => {
+			if (remainingFrames === numFrames) begin = performance.now();
+			--remainingFrames;
+			if (remainingFrames > 0) requestAnimationFrame(callback);
+			this.render();
+			end = performance.now();
+			this.camera.position.applyMatrix4(rotationMatrix);
+			this.camera.lookAt(origin);
+
+			if (remainingFrames <= 0) {
+				const elapsed = end - begin;
+				console.log('Elapsed time: ' + elapsed + 'ms', 'Average fps: ' + numFrames / (elapsed / 1000));
+				this.resetCamera();
+				console.log('\n----------\nEnd of benchmark.\n----------\n\n');
+			}
+		};
+
+		requestAnimationFrame(callback);
+	}
 }
