@@ -163,11 +163,12 @@ export class SceneManager {
 	}
 
 	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>): void {
-		const geometry = new THREE.InstancedBufferGeometry();
+		//const geometry = new THREE.InstancedBufferGeometry();
+		const geometry = new THREE.BufferGeometry();
 		geometry.index = mesh.geometry.index!.clone();
 		// If all glyphs in the selected atlas have the same geometry, mesh.geometry is the same object for all colors. This requires a deep-ish copy to not override the attributes set for previous iterations.
 		geometry.attributes = { ...mesh.geometry.attributes };
-		geometry.instanceCount = count;
+		//geometry.instanceCount = count;
 
 		/*
 		Create position offset and LoD buffers
@@ -207,7 +208,8 @@ export class SceneManager {
 		const depthMaterial = new THREE.MeshDepthMaterial();
 		const distanceMaterial = new THREE.MeshDistanceMaterial();
 
-		const instancedMesh = new THREE.Mesh(geometry, material);
+		//const instancedMesh = new THREE.Mesh(geometry, material);
+		const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
 		// three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
 		instancedMesh.frustumCulled = false;
 		instancedMesh.castShadow = true;
