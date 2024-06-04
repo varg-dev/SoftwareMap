@@ -1,9 +1,10 @@
 import GUI, {Controller} from 'lil-gui';
 import {RenderingManager} from './RenderingManager.ts';
-import {SceneManager} from './SceneManager.ts';
+import {InstancingMethod, SceneManager} from './SceneManager.ts';
 import * as THREE from 'three';
 
 export type Mappings = {
+	instancingMethod: InstancingMethod,
 	lodThreshold: number,
 	labelSettings: {
 		labelSize: number,
@@ -26,6 +27,7 @@ export type Mappings = {
 };
 
 export type MappingsUpdate = {
+	instancingMethod?: boolean,
 	lodThreshold?: boolean,
 	labelSettings?: {
 		labelSize?: boolean,
@@ -80,6 +82,7 @@ export class GuiManager {
 		this.mainGui = new GUI({title: 'Options'});
 
 		this.mappings = {
+			instancingMethod: InstancingMethod.InstancedBufferGeometry,
 			lodThreshold: 0.75,
 			labelSettings: {
 				labelSize: 0.01,
@@ -124,6 +127,12 @@ export class GuiManager {
 
 		this.mainGui.add(this.mappings, 'lodThreshold').name('Distance threshold for LoD').min(0).max(3).onChange(async () => {
 			await this.sceneManager.update({ lodThreshold: true });
+			this.updateURL();
+		});
+		this.mainGui.add({ instancingMethod: 'InstancedBufferGeometry' }, 'instancingMethod', ['InstancedMesh', 'InstancedBufferGeometry']).name('Instancing method').onChange(async (value: string) => {
+			if (value === 'InstancedBufferGeometry') this.mappings.instancingMethod = InstancingMethod.InstancedBufferGeometry;
+			else if (value === 'InstancedMesh') this.mappings.instancingMethod = InstancingMethod.InstancedMesh;
+			await this.sceneManager.update({ instancingMethod: true });
 			this.updateURL();
 		});
 

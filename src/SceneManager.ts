@@ -9,6 +9,11 @@ type CsvAndIndices = {
 	csv: CSV,
 	positionIndices?: THREE.Vector2
 };
+export enum InstancingMethod {
+	//None,
+	InstancedMesh,
+	InstancedBufferGeometry
+}
 
 export class SceneManager {
 	readonly scene: THREE.Scene;
@@ -149,8 +154,8 @@ export class SceneManager {
 			const meshes = new Array<THREE.Mesh>();
 			const positions = new Array<THREE.InstancedBufferAttribute>();
 
-			if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions); });
-			else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions);
+			if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod); });
+			else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod);
 
 			this.instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
 
@@ -162,25 +167,32 @@ export class SceneManager {
 		this.renderingManager.requestUpdate();
 	}
 
-	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>): void {
-		//const geometry = new THREE.InstancedBufferGeometry();
-		const geometry = new THREE.BufferGeometry();
+	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>, instancingMethod: InstancingMethod): void {
+		let geometry: THREE.BufferGeometry | THREE.InstancedBufferGeometry;
+		if (instancingMethod === InstancingMethod.InstancedMesh) geometry = new THREE.BufferGeometry();
+		else if (instancingMethod === InstancingMethod.InstancedBufferGeometry) geometry = new THREE.InstancedBufferGeometry();
+		else return;
+
 		geometry.index = mesh.geometry.index!.clone();
 		// If all glyphs in the selected atlas have the same geometry, mesh.geometry is the same object for all colors. This requires a deep-ish copy to not override the attributes set for previous iterations.
 		geometry.attributes = { ...mesh.geometry.attributes };
-		//geometry.instanceCount = count;
+		if (geometry instanceof THREE.InstancedBufferGeometry) geometry.instanceCount = count;
 
 		const material = (mesh.material as THREE.Material).clone();
 		material.customProgramCacheKey = () => { return 'lod_' + glyphIndex; };
 		const depthMaterial = new THREE.MeshDepthMaterial();
 		const distanceMaterial = new THREE.MeshDistanceMaterial();
 
-		//const instancedMesh = new THREE.Mesh(geometry, material);
-		const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-		instancedMesh.instanceMatrix.usage = THREE.StaticDrawUsage;
+		let instancedMesh: THREE.InstancedMesh | THREE.Mesh;
+		if (instancingMethod === InstancingMethod.InstancedMesh) {
+			instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+			(instancedMesh as THREE.InstancedMesh).instanceMatrix.usage = THREE.StaticDrawUsage;
+		}
+		else if (instancingMethod === InstancingMethod.InstancedBufferGeometry) instancedMesh = new THREE.Mesh(geometry, material);
+		else return;
 
 		const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
-		//instancedMesh.scale.set(scale, scale, scale);
+		if (instancingMethod === InstancingMethod.InstancedBufferGeometry) instancedMesh.scale.set(scale, scale, scale);
 
 		/*
 		Create position offset and LoD buffers
@@ -199,8 +211,10 @@ export class SceneManager {
 			positionOffsets[arrayIndex * 2] = position.x;
 			positionOffsets[arrayIndex * 2 + 1] = position.y;
 
-			const instanceMatrix = new THREE.Matrix4().setPosition(position.x, 0, position.y).scale(new THREE.Vector3(scale, scale, scale));
-			instancedMesh.setMatrixAt(arrayIndex, instanceMatrix);
+			if (instancedMesh instanceof THREE.InstancedMesh) {
+				const instanceMatrix = new THREE.Matrix4().setPosition(position.x, 0, position.y).scale(new THREE.Vector3(scale, scale, scale));
+				instancedMesh.setMatrixAt(arrayIndex, instanceMatrix);
+			}
 
 			lods[arrayIndex] = lod;
 			maxLods[arrayIndex] = mapping.glyphIndices.length - 1;
@@ -218,8 +232,8 @@ export class SceneManager {
 		geometry.setAttribute('maxLod', maxLodAttribute);
 		geometry.setAttribute('idAttribute', idAttribute);
 
-		// three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
-		instancedMesh.frustumCulled = false;
+		// If InstancedBufferGeometry is used: three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
+		if (instancingMethod === InstancingMethod.InstancedBufferGeometry) instancedMesh.frustumCulled = false;
 		instancedMesh.castShadow = true;
 
 		/*
@@ -233,7 +247,7 @@ export class SceneManager {
 		const onBeforeCompileMaterial = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
-			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, false);
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, false, instancingMethod);
 
 			const insertionPoint = parameters.fragmentShader.indexOf('}');
 			parameters.fragmentShader =
@@ -249,7 +263,7 @@ export class SceneManager {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 			parameters.uniforms['actualCameraPosition'] = { value: this.renderingManager.camera.position };
 
-			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, true);
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, true, instancingMethod);
 
 			const insertionPoint = parameters.fragmentShader.indexOf('}');
 			parameters.fragmentShader =
@@ -281,9 +295,10 @@ export class SceneManager {
 	 * Adds code enabling the position offset and LoD passed via attribute in the given GLSL shader.
 	 * @param shader The shader to augment
 	 * @param isAuxiliaryMaterial Whether the shader is a depth or distance material
+	 * @param instancingMethod What instancing method to use
 	 * @protected
 	 */
-	protected addPositionOffsetAndLoDToShader(shader: string, isAuxiliaryMaterial: boolean): string {
+	protected addPositionOffsetAndLoDToShader(shader: string, isAuxiliaryMaterial: boolean, instancingMethod: InstancingMethod): string {
 		return (
 			`attribute float idAttribute;
 			attribute vec2 positionOffset;
@@ -294,12 +309,11 @@ export class SceneManager {
 			Only depth and distance materials need this uniform of the actual camera position, as the shadow's lod
 			will otherwise be calculated using the distance to the light
 		 	*/
-			+ (isAuxiliaryMaterial ? `uniform vec3 actualCameraPosition;\n` : `\n`)
-			+ `varying float idPass;\n`
+			+ (isAuxiliaryMaterial ? 'uniform vec3 actualCameraPosition;\n' : '')
+			+ 'varying float idPass;\n'
 			+ shader.substring(0, shader.indexOf('}'))
-			+
-			`//gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);
-			float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), ` + (isAuxiliaryMaterial ? `actualCameraPosition` : `cameraPosition`) + `);\n`
+			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);' : '')
+			+ 'float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), ' + (isAuxiliaryMaterial ? 'actualCameraPosition' : 'cameraPosition') + ');\n'
 			+
 			`gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;
 			idPass = idAttribute;\n`
@@ -443,6 +457,9 @@ export class SceneManager {
 				material.userData.lodThreshold.value = this._mappings!.lodThreshold;
 			}
 			this.renderingManager.requestUpdate();
+		}
+		if (value.instancingMethod) {
+			this.createInstancedMeshes();
 		}
 		if (value.labelSettings?.labelSize) {
 			this.pickingHandler.labelSize = this._mappings!.labelSettings.labelSize;
