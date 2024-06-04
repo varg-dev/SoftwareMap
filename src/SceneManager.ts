@@ -451,6 +451,10 @@ export class SceneManager {
 		this.createInstancedMeshes();
 	}
 
+	public get mappings(): Mappings | undefined {
+		return this._mappings;
+	}
+
 	public async update(value: MappingsUpdate): Promise<void> {
 		if (value.lodThreshold && this.materials !== undefined) {
 			for (const material of this.materials) {

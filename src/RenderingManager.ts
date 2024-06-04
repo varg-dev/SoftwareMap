@@ -182,7 +182,9 @@ export class RenderingManager {
 	public benchmark(): void {
 		console.log('\n----------\nStarting benchmark...\n----------\n\n');
 
-		const numFrames = 500;
+		if (this.sceneManager.mappings === undefined) return;
+
+		const numFrames = this.sceneManager.mappings.numberBenchmarkingFrames;
 		let remainingFrames = Math.round(numFrames * 1.1);
 		let begin: number;
 		let end: number;

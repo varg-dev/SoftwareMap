@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 export type Mappings = {
 	instancingMethod: InstancingMethod,
+	numberBenchmarkingFrames: number,
 	lodThreshold: number,
 	labelSettings: {
 		labelSize: number,
@@ -83,6 +84,7 @@ export class GuiManager {
 
 		this.mappings = {
 			instancingMethod: InstancingMethod.InstancedBufferGeometry,
+			numberBenchmarkingFrames: 500,
 			lodThreshold: 0.75,
 			labelSettings: {
 				labelSize: 0.01,
@@ -124,6 +126,7 @@ export class GuiManager {
 	protected addMainGui(): void {
 		this.mainGui.add({ reset: () => this.renderingManager.resetCamera() }, 'reset').name('Reset camera');
 		this.mainGui.add({ benchmark: () => this.renderingManager.benchmark() }, 'benchmark').name('Benchmark');
+		this.mainGui.add(this.mappings, 'numberBenchmarkingFrames').name('Number of frames to render in benchmark').onChange(() => this.updateURL());
 
 		this.mainGui.add(this.mappings, 'lodThreshold').name('Distance threshold for LoD').min(0).max(3).onChange(async () => {
 			await this.sceneManager.update({ lodThreshold: true });
