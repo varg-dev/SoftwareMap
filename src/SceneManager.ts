@@ -31,7 +31,7 @@ export class SceneManager {
 	protected _glyphAtlas: GlyphAtlas | undefined;
 	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
 	protected glyphCount: Array<number> | undefined;
-	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh> }> | undefined;
+	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
 
 	protected _mappings: Mappings | undefined;
@@ -478,7 +478,15 @@ export class SceneManager {
 				if (entry === undefined) continue;
 
 				for (const mesh of entry.meshes) {
-					mesh.scale.set(scale, scale, scale);
+					if (mesh instanceof THREE.InstancedMesh) {
+						for (let i = 0; i < mesh.count; ++i) {
+							const matrix = new THREE.Matrix4();
+							mesh.getMatrixAt(i, matrix);
+							mesh.setMatrixAt(i, new THREE.Matrix4().copyPosition(matrix).scale(new THREE.Vector3(scale, scale, scale)));
+							mesh.instanceMatrix.needsUpdate = true;
+						}
+					}
+					else mesh.scale.set(scale, scale, scale);
 				}
 			}
 			this.renderingManager.requestUpdate();
