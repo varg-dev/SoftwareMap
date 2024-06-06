@@ -133,14 +133,18 @@ export class RenderingManager {
 					mesh.visible = !((distance > lodThreshold * (lod + 1) && lod < maxLod) || distance <= lodThreshold * lod);
 				}
 			}
+
+			this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
+			this.renderer.render(this.sceneManager.scene, this.camera);
+			this.controls.update(true);
+		} else {
+			this.renderer.setRenderTarget(this.multisampledRenderTarget);
+			this.renderer.render(this.sceneManager.scene, this.camera);
+
+			this.copyRenderTargetToCanvas(this.multisampledRenderTarget);
+
+			this.controls.update(false);
 		}
-
-		this.renderer.setRenderTarget(this.multisampledRenderTarget);
-		this.renderer.render(this.sceneManager.scene, this.camera);
-
-		this.copyRenderTargetToCanvas(this.multisampledRenderTarget);
-
-		this.controls.update(false);
 	}
 
 	public resetCamera(): void {
