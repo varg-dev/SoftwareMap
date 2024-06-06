@@ -10,7 +10,7 @@ type CsvAndIndices = {
 	positionIndices?: THREE.Vector2
 };
 export enum InstancingMethod {
-	//None,
+	None,
 	InstancedMesh,
 	InstancedBufferGeometry
 }
@@ -31,7 +31,7 @@ export class SceneManager {
 	protected _glyphAtlas: GlyphAtlas | undefined;
 	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
 	protected glyphCount: Array<number> | undefined;
-	protected instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined;
+	protected _instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
 
 	protected _mappings: Mappings | undefined;
@@ -145,7 +145,7 @@ export class SceneManager {
 		this.glyphGroup.clear();
 		this.materials = [];
 
-		this.instancedGlyphs = [];
+		this._instancedGlyphs = [];
 		for (const [index, count] of this.glyphCount.entries()) {
 			if (count <= 0) continue;
 
@@ -157,7 +157,7 @@ export class SceneManager {
 			if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod); });
 			else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod);
 
-			this.instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
+			this._instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
 
 			for (const mesh of meshes) {
 				this.glyphGroup.add(mesh);
@@ -171,6 +171,10 @@ export class SceneManager {
 		let geometry: THREE.BufferGeometry | THREE.InstancedBufferGeometry;
 		if (instancingMethod === InstancingMethod.InstancedMesh) geometry = new THREE.BufferGeometry();
 		else if (instancingMethod === InstancingMethod.InstancedBufferGeometry) geometry = new THREE.InstancedBufferGeometry();
+		else if (instancingMethod === InstancingMethod.None) {
+			this.emulateInstancedMesh(mesh, count, glyphIndex, meshes);
+			return;
+		}
 		else return;
 
 		geometry.index = mesh.geometry.index!.clone();
@@ -320,6 +324,47 @@ export class SceneManager {
 			+ shader.substring(shader.indexOf('}')));
 	}
 
+	protected emulateInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>): void {
+		const meshesArray = new Array<THREE.Mesh>();
+		for (let i = 0; i < count; ++i) {
+			const tempMesh = mesh.clone();
+			tempMesh.material = (mesh.material as THREE.Material).clone();
+			meshesArray.push(tempMesh);
+		}
+
+		const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
+
+		let meshIndex = 0;
+		for (const mapping of this.glyphToCsvMapping!) {
+			const lod = mapping.glyphIndices.indexOf(glyphIndex);
+			if (lod === -1) continue;
+
+			const position = this.calculatePosition(this._csv!.csv[mapping.csvRow]);
+
+			const tempMesh = meshesArray[meshIndex];
+
+			tempMesh.position.set(position.x, 0, position.y);
+			tempMesh.scale.set(scale, scale, scale);
+			tempMesh.castShadow = true;
+			tempMesh.userData['lod'] = lod;
+			tempMesh.userData['maxLod'] = mapping.glyphIndices.length - 1;
+
+			(tempMesh.material as THREE.Material).onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
+				const insertionPoint = parameters.fragmentShader.indexOf('}');
+				parameters.fragmentShader =
+					'layout(location = 1) out vec4 id;\n'
+					+ parameters.fragmentShader.substring(0, insertionPoint)
+					+ `id = vec4(vec3(1), 1.);
+`
+					+ parameters.fragmentShader.substring(insertionPoint);
+			};
+
+			++meshIndex;
+		}
+
+		meshes.push(...meshesArray);
+	}
+
 	protected calculateIndicesForGlyphs(): void {
 		if (!this.sceneCanBeDrawn()) return;
 
@@ -455,6 +500,10 @@ export class SceneManager {
 		return this._mappings;
 	}
 
+	public get instancedGlyphs(): Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined {
+		return this._instancedGlyphs;
+	}
+
 	public async update(value: MappingsUpdate): Promise<void> {
 		if (value.lodThreshold && this.materials !== undefined) {
 			for (const material of this.materials) {
@@ -471,10 +520,10 @@ export class SceneManager {
 		if (value.labelSettings?.labelOffset) {
 			this.pickingHandler.labelOffset = this._mappings!.labelSettings.labelOffset;
 		}
-		if (value.basicMappings?.size && this.instancedGlyphs !== undefined) {
+		if (value.basicMappings?.size && this._instancedGlyphs !== undefined) {
 			const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
 
-			for (const entry of this.instancedGlyphs) {
+			for (const entry of this._instancedGlyphs) {
 				if (entry === undefined) continue;
 
 				for (const mesh of entry.meshes) {

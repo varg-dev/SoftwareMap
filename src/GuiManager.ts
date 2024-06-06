@@ -132,7 +132,7 @@ export class GuiManager {
 			await this.sceneManager.update({ lodThreshold: true });
 			this.updateURL();
 		});
-		this.mainGui.add(this.mappings, 'instancingMethod', {InstancedMesh: InstancingMethod.InstancedMesh, InstancedBufferGeometry: InstancingMethod.InstancedBufferGeometry}).name('Instancing method').onChange(async () => {
+		this.mainGui.add(this.mappings, 'instancingMethod', {None: InstancingMethod.None, InstancedMesh: InstancingMethod.InstancedMesh, InstancedBufferGeometry: InstancingMethod.InstancedBufferGeometry}).name('Instancing method').onChange(async () => {
 			await this.sceneManager.update({ instancingMethod: true });
 			this.updateURL();
 		});
