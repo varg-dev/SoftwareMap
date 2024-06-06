@@ -7,6 +7,7 @@ export class PickingHandler {
 	protected sceneManager: SceneManager;
 	protected canvas: HTMLCanvasElement;
 	protected fontFace: FontFace;
+	protected raycaster: THREE.Raycaster;
 
 	protected currentLabel: SplitLabel | undefined;
 	protected csvRow: Array<string> | undefined;
@@ -20,6 +21,8 @@ export class PickingHandler {
 
 		this.labelGroup = new THREE.Group();
 		this.sceneManager.scene.add(this.labelGroup);
+
+		this.raycaster = new THREE.Raycaster();
 
 		this.canvas = this.sceneManager.renderingManager.canvas;
 
@@ -52,10 +55,8 @@ export class PickingHandler {
 				}
 				return;
 			}
-		} else {
-			const caster = new THREE.Raycaster();
-			caster.setFromCamera(mousePositionNDC, this.sceneManager.renderingManager.camera);
-			const intersection = caster.intersectObject(this.sceneManager.glyphGroup)[0];
+			this.raycaster.setFromCamera(mousePositionNDC, this.sceneManager.renderingManager.camera);
+			const intersection = this.raycaster.intersectObject(this.sceneManager.glyphGroup)[0];
 			if (intersection === undefined) return;
 			value = intersection.object.userData['csvRow'] as number;
 		}
