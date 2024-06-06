@@ -22,6 +22,7 @@ export class SceneManager {
 	protected pickingHandler: PickingHandler;
 
 	protected staticElements: THREE.Group;
+	protected idBackground!: THREE.Mesh;
 	protected spotLight!: THREE.SpotLight;
 	// Use additional group to clear placed glyphs without clearing plane, lighting etc.
 	protected _glyphGroup: THREE.Group;
@@ -117,8 +118,8 @@ export class SceneManager {
 			`,
 			glslVersion: THREE.GLSL3
 		});
-		const background = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), backgroundMaterial);
-		this.staticElements.add(background);
+		this.idBackground = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), backgroundMaterial);
+		this.staticElements.add(this.idBackground);
 	}
 
 	public set csv(value: CSV) {
@@ -526,6 +527,7 @@ export class SceneManager {
 			this.renderingManager.requestUpdate();
 		}
 		if (value.instancingMethod) {
+			this.idBackground.visible = (this._mappings!.instancingMethod === InstancingMethod.InstancedBufferGeometry);
 			this.createInstancedMeshes();
 		}
 		if (value.labelSettings?.labelSize) {
