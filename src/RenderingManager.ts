@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 //import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { WorldInHandControls } from '@world-in-hand-controls/threejs-world-in-hand';
+import {WorldInHandControls} from '@world-in-hand-controls/threejs-world-in-hand';
 import {InstancingMethod, SceneManager} from './SceneManager.ts';
 
 export class RenderingManager {
@@ -133,7 +133,9 @@ export class RenderingManager {
 					mesh.visible = !((distance > lodThreshold * (lod + 1) && lod < maxLod) || distance <= lodThreshold * lod);
 				}
 			}
+		}
 
+		if (this.sceneManager.mappings?.instancingMethod === InstancingMethod.None || this.sceneManager.mappings?.instancingMethod === InstancingMethod.InstancedMesh) {
 			this.renderer.setRenderTarget(this.controls.navigationRenderTarget);
 			this.renderer.render(this.sceneManager.scene, this.camera);
 			this.controls.update(true);

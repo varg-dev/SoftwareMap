@@ -230,11 +230,16 @@ export class SceneManager {
 		const positionAttribute = new THREE.InstancedBufferAttribute(positionOffsets, 2);
 		const lodAttribute = new THREE.InstancedBufferAttribute(lods, 1,);
 		const maxLodAttribute = new THREE.InstancedBufferAttribute(maxLods, 1);
-		const idAttribute = new THREE.InstancedBufferAttribute(ids, 1);
+
+		if (instancedMesh instanceof THREE.InstancedMesh) instancedMesh.userData['ids'] = ids;
+		else {
+			const idAttribute = new THREE.InstancedBufferAttribute(ids, 1);
+			geometry.setAttribute('idAttribute', idAttribute);
+		}
+
 		geometry.setAttribute('positionOffset', positionAttribute);
 		geometry.setAttribute('lod', lodAttribute);
 		geometry.setAttribute('maxLod', maxLodAttribute);
-		geometry.setAttribute('idAttribute', idAttribute);
 
 		// If InstancedBufferGeometry is used: three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
 		if (instancingMethod === InstancingMethod.InstancedBufferGeometry) instancedMesh.frustumCulled = false;
@@ -253,13 +258,15 @@ export class SceneManager {
 
 			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, false, instancingMethod);
 
-			const insertionPoint = parameters.fragmentShader.indexOf('}');
-			parameters.fragmentShader =
-				'varying float idPass;\n'
-				+ 'layout(location = 1) out vec4 id;\n'
-				+ parameters.fragmentShader.substring(0, insertionPoint)
-				+ 'id = vec4(vec3(idPass), 1.);\n'
-				+ parameters.fragmentShader.substring(insertionPoint);
+			if (instancingMethod === InstancingMethod.InstancedBufferGeometry) {
+				const insertionPoint = parameters.fragmentShader.indexOf('}');
+				parameters.fragmentShader =
+					'varying float idPass;\n'
+					+ 'layout(location = 1) out vec4 id;\n'
+					+ parameters.fragmentShader.substring(0, insertionPoint)
+					+ 'id = vec4(vec3(idPass), 1.);\n'
+					+ parameters.fragmentShader.substring(insertionPoint);
+			}
 
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
 		};
@@ -269,13 +276,15 @@ export class SceneManager {
 
 			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, true, instancingMethod);
 
-			const insertionPoint = parameters.fragmentShader.indexOf('}');
-			parameters.fragmentShader =
-				'varying float idPass;\n'
-				+ 'layout(location = 1) out vec4 id;\n'
-				+ parameters.fragmentShader.substring(0, insertionPoint)
-				+ 'id = vec4(vec3(idPass), 1.);\n'
-				+ parameters.fragmentShader.substring(insertionPoint);
+			if (instancingMethod === InstancingMethod.InstancedBufferGeometry) {
+				const insertionPoint = parameters.fragmentShader.indexOf('}');
+				parameters.fragmentShader =
+					'varying float idPass;\n'
+					+ 'layout(location = 1) out vec4 id;\n'
+					+ parameters.fragmentShader.substring(0, insertionPoint)
+					+ 'id = vec4(vec3(idPass), 1.);\n'
+					+ parameters.fragmentShader.substring(insertionPoint);
+			}
 
 			// console.log('Type: ', parameters.shaderType, '\n', 'Vertex shader: ', parameters.vertexShader);
 		};
@@ -304,8 +313,9 @@ export class SceneManager {
 	 */
 	protected addPositionOffsetAndLoDToShader(shader: string, isAuxiliaryMaterial: boolean, instancingMethod: InstancingMethod): string {
 		return (
-			`attribute float idAttribute;
-			attribute vec2 positionOffset;
+			((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'attribute float idAttribute;' : '')
+			+
+			`attribute vec2 positionOffset;
 			attribute float lod;
 			attribute float maxLod;
 			uniform float lodThreshold;\n`
@@ -314,13 +324,12 @@ export class SceneManager {
 			will otherwise be calculated using the distance to the light
 		 	*/
 			+ (isAuxiliaryMaterial ? 'uniform vec3 actualCameraPosition;\n' : '')
-			+ 'varying float idPass;\n'
+			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'varying float idPass;\n' : '')
 			+ shader.substring(0, shader.indexOf('}'))
 			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);' : '')
 			+ 'float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), ' + (isAuxiliaryMaterial ? 'actualCameraPosition' : 'cameraPosition') + ');\n'
-			+
-			`gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;
-			idPass = idAttribute;\n`
+			+ 'gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;'
+			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'idPass = idAttribute;\n' : '')
 			+ shader.substring(shader.indexOf('}')));
 	}
 
@@ -348,7 +357,7 @@ export class SceneManager {
 			tempMesh.castShadow = true;
 			tempMesh.userData['lod'] = lod;
 			tempMesh.userData['maxLod'] = mapping.glyphIndices.length - 1;
-			tempMesh.userData['csvRow'] = mapping.csvRow;
+			tempMesh.userData['id'] = mapping.csvRow;
 
 			(tempMesh.material as THREE.Material).onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 				const insertionPoint = parameters.fragmentShader.indexOf('}');

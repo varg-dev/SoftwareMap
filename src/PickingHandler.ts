@@ -44,7 +44,7 @@ export class PickingHandler {
 		let value: number | null = -1;
 		const mousePositionNDC = new THREE.Vector2((event.clientX / this.canvas.clientWidth) * 2 - 1, 1 - (event.clientY / this.canvas.clientHeight) * 2);
 
-		if (this.sceneManager.mappings?.instancingMethod === InstancingMethod.InstancedBufferGeometry || this.sceneManager.mappings?.instancingMethod === InstancingMethod.InstancedMesh) {
+		if (this.sceneManager.mappings?.instancingMethod === InstancingMethod.InstancedBufferGeometry) {
 			value = this.sceneManager.renderingManager.getIdFromPixel(mousePositionNDC.x, mousePositionNDC.y);
 
 			// no intersections with glyphs exist
@@ -55,10 +55,19 @@ export class PickingHandler {
 				}
 				return;
 			}
+		} else {
 			this.raycaster.setFromCamera(mousePositionNDC, this.sceneManager.renderingManager.camera);
 			const intersection = this.raycaster.intersectObject(this.sceneManager.glyphGroup)[0];
-			if (intersection === undefined) return;
-			value = intersection.object.userData['csvRow'] as number;
+			if (intersection === undefined) {
+				if (this.currentLabel !== undefined) {
+					this.currentLabel = undefined;
+					this.sceneManager.renderingManager.requestUpdate();
+				}
+				return;
+			}
+
+			if (this.sceneManager.mappings?.instancingMethod === InstancingMethod.None) value = intersection.object.userData['id'] as number;
+			else value = intersection.object.userData['ids'][intersection.instanceId!] as number;
 		}
 
 		const csv = this.sceneManager.csv;
