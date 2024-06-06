@@ -24,7 +24,7 @@ export class SceneManager {
 	protected staticElements: THREE.Group;
 	protected spotLight!: THREE.SpotLight;
 	// Use additional group to clear placed glyphs without clearing plane, lighting etc.
-	protected glyphGroup: THREE.Group;
+	protected _glyphGroup: THREE.Group;
 
 	protected _csv: CsvAndIndices | undefined;
 
@@ -43,10 +43,10 @@ export class SceneManager {
 
 		this.scene = new THREE.Scene();
 		this.staticElements = new THREE.Group();
-		this.glyphGroup = new THREE.Group();
+		this._glyphGroup = new THREE.Group();
 
 		this.scene.add(this.staticElements);
-		this.scene.add(this.glyphGroup);
+		this.scene.add(this._glyphGroup);
 
 		this.setUpStaticElements();
 
@@ -141,8 +141,8 @@ export class SceneManager {
 		if (!this.sceneCanBeDrawn() || this.glyphToCsvMapping === undefined || this.glyphCount === undefined) return;
 		if (this.xAndYBounds === undefined) this.findAttributeBounds();
 
-		this.disposeObject3D(this.glyphGroup);
-		this.glyphGroup.clear();
+		this.disposeObject3D(this._glyphGroup);
+		this._glyphGroup.clear();
 		this.materials = [];
 
 		this._instancedGlyphs = [];
@@ -160,7 +160,7 @@ export class SceneManager {
 			this._instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
 
 			for (const mesh of meshes) {
-				this.glyphGroup.add(mesh);
+				this._glyphGroup.add(mesh);
 			}
 		}
 
@@ -348,6 +348,7 @@ export class SceneManager {
 			tempMesh.castShadow = true;
 			tempMesh.userData['lod'] = lod;
 			tempMesh.userData['maxLod'] = mapping.glyphIndices.length - 1;
+			tempMesh.userData['csvRow'] = mapping.csvRow;
 
 			(tempMesh.material as THREE.Material).onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 				const insertionPoint = parameters.fragmentShader.indexOf('}');
@@ -502,6 +503,10 @@ export class SceneManager {
 
 	public get instancedGlyphs(): Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined {
 		return this._instancedGlyphs;
+	}
+
+	public get glyphGroup(): THREE.Group {
+		return this._glyphGroup;
 	}
 
 	public async update(value: MappingsUpdate): Promise<void> {
