@@ -9,6 +9,12 @@ type CsvAndIndices = {
 	csv: CSV,
 	positionIndices?: THREE.Vector2
 };
+type Warnings = {
+	notCastable: unknown | undefined,
+	rounding: unknown | undefined,
+	wrapAround: unknown | undefined,
+	noValidVariant: unknown | undefined
+} & Record<string, unknown | undefined>;
 export enum InstancingMethod {
 	None,
 	InstancedMesh,
@@ -382,25 +388,42 @@ export class SceneManager {
 		this.glyphToCsvMapping = new Array(this._csv!.csv.length - 1);
 		this.glyphCount = new Array<number>(this._glyphAtlas!.glyphs.length).fill(0);
 
+		const warnings: Warnings = {
+			notCastable: undefined,
+			rounding: undefined,
+			wrapAround: undefined,
+			noValidVariant: undefined
+		};
+
 		for (const [index, row] of this._csv!.csv.entries()) {
 			if (index === 0) continue;
-			const glyphIndices = this.calculateIndicesForGlyph(row);
-			if (glyphIndices == null) continue;
-			this.glyphToCsvMapping[index - 1] = { glyphIndices: glyphIndices, csvRow: index };
-			for (const index of glyphIndices) ++this.glyphCount[index];
+			const glyphIndicesWithWarnings = this.calculateIndicesForGlyph(row);
+			this.mergeWarnings(warnings, glyphIndicesWithWarnings.warnings);
+			if (glyphIndicesWithWarnings.indices == null) continue;
+			this.glyphToCsvMapping[index - 1] = { glyphIndices: glyphIndicesWithWarnings.indices, csvRow: index };
+			for (const index of glyphIndicesWithWarnings.indices) ++this.glyphCount[index];
 		}
+
+		this.printWarnings(warnings);
 	}
 
-	protected calculateIndicesForGlyph(csvRow: Array<string>): Array<number> | null {
+	protected calculateIndicesForGlyph(csvRow: Array<string>): { indices: Array<number> | null, warnings: Warnings } {
 		const glyphTypeSelectionColumn = this._csv!.csv[0].indexOf(this._mappings!.requiredMappings.glyphType!);
 		let glyphTypeSelectionValue = Number(csvRow[glyphTypeSelectionColumn]);
 
+		const warnings: Warnings = {
+			notCastable: undefined,
+			rounding: undefined,
+			wrapAround: undefined,
+			noValidVariant: undefined
+		};
+
 		if (glyphTypeSelectionValue === undefined) {
-			console.error('The column selected for glyphType (' + this._mappings!.requiredMappings.glyphType! + ') contains at least one value that cannot be casted to a number: ' + csvRow[glyphTypeSelectionColumn]);
-			return null;
+			warnings.notCastable = csvRow[glyphTypeSelectionColumn];
+			return { indices: null, warnings: warnings };
 		}
 		if (glyphTypeSelectionValue !== Math.round(glyphTypeSelectionValue)) {
-			console.warn('The value given as glyphType is not integer (' + glyphTypeSelectionValue + '). Because of this, the value has been rounded.');
+			warnings.rounding = glyphTypeSelectionValue;
 			glyphTypeSelectionValue = Math.round(glyphTypeSelectionValue);
 		}
 		// If more distinct values of the csv column mapped to glyphType exist (or the values are too large), we wrap around (while preventing NaN)
@@ -408,7 +431,7 @@ export class SceneManager {
 			glyphTypeSelectionValue = 0;
 		}
 		else if (glyphTypeSelectionValue >= this._glyphAtlas!.json.types.length) {
-			console.warn('The value used to select the glyph type (' + glyphTypeSelectionValue + ') is larger than the amount of available types. This value will be wrapped around.');
+			warnings.wrapAround = glyphTypeSelectionValue;
 			glyphTypeSelectionValue %= this._glyphAtlas!.json.types.length - 1;
 		}
 
@@ -438,7 +461,7 @@ export class SceneManager {
 			}
 
 			if (largestValidVariantIndex === -1) {
-				console.warn('No valid variant could be found for the current row ' + csvRow + '. The base model of the selected type will be used.');
+				warnings.noValidVariant = csvRow;
 				selectedGlyphName.push(glyphType.baseModel);
 			} else {
 				selectedGlyphName = glyphType.variants[largestValidVariantIndex].name;
@@ -449,7 +472,11 @@ export class SceneManager {
 		for (const name of selectedGlyphName) {
 			indices.push(this._glyphAtlas!.glyphs.findIndex((value: THREE.Object3D) => { return name === value.name; } ));
 		}
-		return indices;
+
+		return {
+			indices: indices,
+			warnings: warnings
+		};
 	}
 
 	protected findAttributeBounds(): void {
@@ -614,5 +641,20 @@ export class SceneManager {
 				// @ts-expect-error TS2339; explicitly checks for existence of property
 				currentObject.shadow.dispose();
 		});
+	}
+
+	protected mergeWarnings(oldWarnings: Warnings, newWarnings: Warnings): void {
+		for (const warningKey in newWarnings) {
+			if (oldWarnings[warningKey] === undefined) {
+				oldWarnings[warningKey] = newWarnings[warningKey];
+			}
+		}
+	}
+
+	protected printWarnings(warnings: Warnings): void {
+		if (warnings.notCastable) console.error('The column selected for glyphType (' + this._mappings!.requiredMappings.glyphType! + ') contains at least one value that cannot be casted to a number: ' + warnings.notCastable);
+		if (warnings.rounding) console.warn('At least one value given as glyphType is not integer (' + warnings.rounding + '). Because of this, the value has been rounded.');
+		if (warnings.wrapAround) console.warn('At least one value used to select the glyph type (' + warnings.wrapAround + ') is larger than the amount of available types. This value will be wrapped around.');
+		if (warnings.noValidVariant) console.warn('No valid variant could be found for the at least row ' + warnings.noValidVariant + '. The base model of the selected type will be used.');
 	}
 }
