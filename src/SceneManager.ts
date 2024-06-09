@@ -250,7 +250,7 @@ export class SceneManager {
 
 		// If InstancedBufferGeometry is used: three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
 		if (instancingMethod === InstancingMethod.InstancedBufferGeometry) instancedMesh.frustumCulled = false;
-		instancedMesh.castShadow = true;
+		instancedMesh.castShadow = (lods[0] === maxLods[0]);
 
 		/*
 		Add positional offset to materials
@@ -326,16 +326,11 @@ export class SceneManager {
 			attribute float lod;
 			attribute float maxLod;
 			uniform float lodThreshold;\n`
-			/*
-			Only depth and distance materials need this uniform of the actual camera position, as the shadow's lod
-			will otherwise be calculated using the distance to the light
-		 	*/
-			+ (isAuxiliaryMaterial ? 'uniform vec3 actualCameraPosition;\n' : '')
 			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'varying float idPass;\n' : '')
 			+ shader.substring(0, shader.indexOf('}'))
 			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);' : '')
-			+ 'float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), ' + (isAuxiliaryMaterial ? 'actualCameraPosition' : 'cameraPosition') + ');\n'
-			+ 'gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;'
+			+ ((!isAuxiliaryMaterial) ? `float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition);
+				gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;` : '')
 			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'idPass = idAttribute;\n' : '')
 			+ shader.substring(shader.indexOf('}')));
 	}
@@ -361,7 +356,7 @@ export class SceneManager {
 
 			tempMesh.position.set(position.x, 0, position.y);
 			tempMesh.scale.set(scale, scale, scale);
-			tempMesh.castShadow = true;
+			tempMesh.castShadow = true; // cannot be optimized to lowest LoD as that would require additional geometry
 			tempMesh.userData['lod'] = lod;
 			tempMesh.userData['maxLod'] = mapping.glyphIndices.length - 1;
 			tempMesh.userData['id'] = mapping.csvRow;
