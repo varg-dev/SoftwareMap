@@ -209,14 +209,14 @@ export class SceneManager {
 		Create position offset and LoD buffers
 		 */
 		const positionOffsets = new Float32Array(count * 2);
-		const lods = new Float32Array(count);
-		const maxLods = new Float32Array(count);
+		let lod: number | undefined = undefined;
+		let maxLod: number | undefined = undefined;
 		const ids = new Float32Array(count);
 
 		let arrayIndex = 0;
 		for (const mapping of this.glyphToCsvMapping!) {
-			const lod = mapping.glyphIndices.indexOf(glyphIndex);
-			if (lod == -1) continue;
+			const glyphLod = mapping.glyphIndices.indexOf(glyphIndex);
+			if (glyphLod == -1) continue;
 
 			const position = this.calculatePosition(this._csv!.csv[mapping.csvRow]);
 			positionOffsets[arrayIndex * 2] = position.x;
@@ -227,16 +227,23 @@ export class SceneManager {
 				instancedMesh.setMatrixAt(arrayIndex, instanceMatrix);
 			}
 
-			lods[arrayIndex] = lod;
-			maxLods[arrayIndex] = mapping.glyphIndices.length - 1;
+			if (lod !== undefined && maxLod !== undefined) {
+				if (lod !== glyphLod || maxLod !== mapping.glyphIndices.length - 1) {
+					console.error('You appear to use the same model for two different LoDs. This is not supported.');
+				}
+			}
+			lod = glyphLod;
+			maxLod = mapping.glyphIndices.length - 1;
 			ids[arrayIndex] = mapping.csvRow;
 
 			++arrayIndex;
 		}
 
+		if (lod === undefined || maxLod === undefined) return;
+
 		const positionAttribute = new THREE.InstancedBufferAttribute(positionOffsets, 2);
-		const lodAttribute = new THREE.InstancedBufferAttribute(lods, 1,);
-		const maxLodAttribute = new THREE.InstancedBufferAttribute(maxLods, 1);
+		//const lodAttribute = new THREE.InstancedBufferAttribute(lods, 1,);
+		//const maxLodAttribute = new THREE.InstancedBufferAttribute(maxLods, 1);
 
 		if (instancedMesh instanceof THREE.InstancedMesh) instancedMesh.userData['ids'] = ids;
 		else {
@@ -245,12 +252,10 @@ export class SceneManager {
 		}
 
 		geometry.setAttribute('positionOffset', positionAttribute);
-		geometry.setAttribute('lod', lodAttribute);
-		geometry.setAttribute('maxLod', maxLodAttribute);
 
 		// If InstancedBufferGeometry is used: three.js still believes the vertices are at about (0,0,0) and will cull accordingly. Possible TODO: own frustum culling implementation
 		if (instancingMethod === InstancingMethod.InstancedBufferGeometry) instancedMesh.frustumCulled = false;
-		instancedMesh.castShadow = (lods[0] === maxLods[0]);
+		instancedMesh.castShadow = (lod === maxLod);
 
 		/*
 		Add positional offset to materials
@@ -263,7 +268,7 @@ export class SceneManager {
 		const onBeforeCompileMaterial = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 
-			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, false, instancingMethod);
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, false, instancingMethod, lod, maxLod);
 
 			if (instancingMethod === InstancingMethod.InstancedBufferGeometry) {
 				const insertionPoint = parameters.fragmentShader.indexOf('}');
@@ -281,7 +286,7 @@ export class SceneManager {
 			parameters.uniforms['lodThreshold'] = material.userData.lodThreshold;
 			parameters.uniforms['actualCameraPosition'] = { value: this.renderingManager.camera.position };
 
-			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, true, instancingMethod);
+			parameters.vertexShader = this.addPositionOffsetAndLoDToShader(parameters.vertexShader, true, instancingMethod, lod, maxLod);
 
 			if (instancingMethod === InstancingMethod.InstancedBufferGeometry) {
 				const insertionPoint = parameters.fragmentShader.indexOf('}');
@@ -316,18 +321,20 @@ export class SceneManager {
 	 * @param shader The shader to augment
 	 * @param isAuxiliaryMaterial Whether the shader is a depth or distance material
 	 * @param instancingMethod What instancing method to use
+	 * @param lod The level of detail associated with the glyph associated with this shader
+	 * @param maxLod The maximum level of detail associated with the glyph associated with this shader
 	 * @protected
 	 */
-	protected addPositionOffsetAndLoDToShader(shader: string, isAuxiliaryMaterial: boolean, instancingMethod: InstancingMethod): string {
+	protected addPositionOffsetAndLoDToShader(shader: string, isAuxiliaryMaterial: boolean, instancingMethod: InstancingMethod, lod: number, maxLod: number): string {
 		return (
 			((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'attribute float idAttribute;' : '')
 			+
 			`attribute vec2 positionOffset;
-			attribute float lod;
-			attribute float maxLod;
 			uniform float lodThreshold;\n`
 			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'varying float idPass;\n' : '')
 			+ shader.substring(0, shader.indexOf('}'))
+			+ `const float lod = ${lod}.;
+				const float maxLod = ${maxLod}.;`
 			+ ((instancingMethod === InstancingMethod.InstancedBufferGeometry) ? 'gl_Position += projectionMatrix * viewMatrix * vec4(positionOffset.x, 0, positionOffset.y, 0.);' : '')
 			+ ((!isAuxiliaryMaterial) ? `float distance = distance(vec3(positionOffset.x, 0., positionOffset.y), cameraPosition);
 				gl_Position.w -= float((distance > lodThreshold * (lod + 1.) && lod < maxLod) || distance <= lodThreshold * lod) * gl_Position.w;` : '')
