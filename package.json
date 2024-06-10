@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.2.0",
-    "@types/three": "^0.164.0",
+    "@types/three": "^0.165.0",
     "eslint": "^8.57.0",
     "globals": "^15.2.0",
     "typescript": "^5.2.2",
@@ -18,10 +18,10 @@
     "vite": "^5.0.8"
   },
   "dependencies": {
-    "@world-in-hand-controls/threejs-world-in-hand": "^0.0.15",
+    "@world-in-hand-controls/threejs-world-in-hand": "^0.0.16",
     "csv-parse": "^5.5.3",
     "lil-gui": "^0.19.1",
-    "three": "^0.164.1",
+    "three": "^0.165.0",
     "three-openll-labels": "^0.0.10"
   }
 }
