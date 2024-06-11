@@ -125,7 +125,7 @@ export class RenderingManager {
 
 			for (const glyph of glyphs) {
 				if (glyph === undefined) continue;
-				for (const mesh of glyph.meshes) {
+				for (const mesh of glyph) {
 					const distance = this.camera.position.clone().sub(mesh.position).length();
 					const lod: number = mesh.userData['lod'];
 					const maxLod: number = mesh.userData['maxLod'];

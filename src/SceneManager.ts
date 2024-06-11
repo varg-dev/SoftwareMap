@@ -39,7 +39,7 @@ export class SceneManager {
 	protected _glyphQuadTree: QuadTree | undefined;
 
 	protected _glyphAtlas: GlyphAtlas | undefined;
-	protected _instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined;
+	protected _instancedGlyphs: Array<Array<THREE.Mesh | THREE.InstancedMesh>> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
 
 	protected _mappings: Mappings | undefined;
@@ -170,7 +170,7 @@ export class SceneManager {
 				if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod, glyphToCsvMapping); });
 				else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod, glyphToCsvMapping);
 
-				this._instancedGlyphs.push({ meshes: meshes, positionAttributes: positions });
+				this._instancedGlyphs.push(meshes);
 
 				for (const mesh of meshes) {
 					node.storeDirect(mesh);
@@ -553,7 +553,7 @@ export class SceneManager {
 		return this._mappings;
 	}
 
-	public get instancedGlyphs(): Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined {
+	public get instancedGlyphs(): Array<Array<THREE.Mesh | THREE.InstancedMesh>> | undefined {
 		return this._instancedGlyphs;
 	}
 
@@ -585,10 +585,10 @@ export class SceneManager {
 		if (value.basicMappings?.size && this._instancedGlyphs !== undefined) {
 			const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
 
-			for (const entry of this._instancedGlyphs) {
-				if (entry === undefined) continue;
+			for (const meshes of this._instancedGlyphs) {
+				if (meshes === undefined) continue;
 
-				for (const mesh of entry.meshes) {
+				for (const mesh of meshes) {
 					if (mesh instanceof THREE.InstancedMesh) {
 						for (let i = 0; i < mesh.count; ++i) {
 							const matrix = new THREE.Matrix4();
@@ -608,7 +608,7 @@ export class SceneManager {
 				if (possibleGlyphAtlas !== null) {
 					this._glyphAtlas = possibleGlyphAtlas;
 					this.findAttributeBounds();
-					this._glyphQuadTree = new QuadTree(4, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
+					this._glyphQuadTree = new QuadTree(2, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
 				}
 			}
 			this.calculateIndicesForGlyphs();
