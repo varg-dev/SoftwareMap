@@ -104,25 +104,6 @@ export class QuadTree {
 		}
 	}
 
-	public store(mesh: THREE.Mesh, position: THREE.Vector2): void {
-		if (this.children === undefined) this.meshes!.push(mesh);
-		else {
-			if (position.x >= this.avgX) {
-				if (position.y >= this.avgY) {
-					this.children[1].store(mesh, position);
-				} else {
-					this.children[3].store(mesh, position);
-				}
-			} else {
-				if (position.y >= this.avgY) {
-					this.children[0].store(mesh, position);
-				} else {
-					this.children[2].store(mesh, position);
-				}
-			}
-		}
-	}
-
 	public storeDirect(mesh: THREE.Mesh): void {
 		if (this.meshes === undefined) return;
 
@@ -206,25 +187,6 @@ export class QuadTree {
 
 	public get glyphToCsvMapping(): GlyphToCsvMapping | undefined {
 		return this._glyphToCsvMapping;
-	}
-
-	public mergeGlyphCount(): Array<number> {
-		const result = new Array<number>(this.numGlyphs).fill(0);
-
-		if (this._glyphCount === undefined) {
-			for (const child of this.children!) {
-				const childGlyphCount = child.mergeGlyphCount();
-				for (let i = 0; i < childGlyphCount.length; ++i) {
-					result[i] += childGlyphCount[i];
-				}
-			}
-		} else {
-			for (let i = 0; i < this._glyphCount.length; ++i) {
-				result[i] += this._glyphCount[i];
-			}
-		}
-
-		return result;
 	}
 
 	public clear(): void {

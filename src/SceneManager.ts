@@ -154,7 +154,6 @@ export class SceneManager {
 		this.materials = [];
 
 		this._instancedGlyphs = [];
-		console.log(this._glyphQuadTree.leafNodes);
 		for (const node of this._glyphQuadTree.leafNodes) {
 			if (node.glyphCount === undefined) continue;
 			for (const [index, count] of node.glyphCount.entries()) {
@@ -171,7 +170,6 @@ export class SceneManager {
 				if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod, glyphToCsvMapping); });
 				else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod, glyphToCsvMapping);
 
-				//this._instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
 				this._instancedGlyphs.push({ meshes: meshes, positionAttributes: positions });
 
 				for (const mesh of meshes) {
@@ -180,9 +178,6 @@ export class SceneManager {
 				}
 			}
 		}
-
-		console.log(this._glyphQuadTree.mergeGlyphCount());
-		console.log(this._glyphGroup.children);
 
 		this.renderingManager.requestUpdate();
 	}
