@@ -133,6 +133,11 @@ export class RenderingManager {
 					mesh.visible = !((distance > lodThreshold * (lod + 1) && lod < maxLod) || distance <= lodThreshold * lod);
 				}
 			}
+		} else {
+			const quadTree = this.sceneManager.glyphQuadTree;
+			if (quadTree !== undefined && this.sceneManager.mappings !== undefined) {
+				quadTree.updateVisibility(this.camera.position, this.sceneManager.mappings.lodThreshold);
+			}
 		}
 
 		if (this.sceneManager.mappings?.instancingMethod === InstancingMethod.None || this.sceneManager.mappings?.instancingMethod === InstancingMethod.InstancedMesh) {

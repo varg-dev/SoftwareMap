@@ -3,6 +3,7 @@ import {GlyphAtlas, GlyphLoader} from './GlyphLoader.ts';
 import {type Mappings, MappingsUpdate} from './GuiManager.ts';
 import {RenderingManager} from './RenderingManager.ts';
 import {PickingHandler} from "./PickingHandler.ts";
+import {GlyphToCsvMapping, QuadTree} from "./QuadTree.ts";
 
 export type CSV = Array<Array<string>>;
 type CsvAndIndices = {
@@ -35,9 +36,9 @@ export class SceneManager {
 
 	protected _csv: CsvAndIndices | undefined;
 
+	protected _glyphQuadTree: QuadTree | undefined;
+
 	protected _glyphAtlas: GlyphAtlas | undefined;
-	protected glyphToCsvMapping: Array<{ glyphIndices: Array<number>, csvRow: number }> | undefined;
-	protected glyphCount: Array<number> | undefined;
 	protected _instancedGlyphs: Array<{ positionAttributes: Array<THREE.InstancedBufferAttribute>, meshes: Array<THREE.Mesh | THREE.InstancedMesh> }> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
 
@@ -145,7 +146,7 @@ export class SceneManager {
 	}
 
 	protected createInstancedMeshes(): void {
-		if (!this.sceneCanBeDrawn() || this.glyphToCsvMapping === undefined || this.glyphCount === undefined) return;
+		if (!this.sceneCanBeDrawn() || this._glyphQuadTree === undefined) return;
 		if (this.xAndYBounds === undefined) this.findAttributeBounds();
 
 		this.disposeObject3D(this._glyphGroup);
@@ -153,33 +154,45 @@ export class SceneManager {
 		this.materials = [];
 
 		this._instancedGlyphs = [];
-		for (const [index, count] of this.glyphCount.entries()) {
-			if (count <= 0) continue;
+		console.log(this._glyphQuadTree.leafNodes);
+		for (const node of this._glyphQuadTree.leafNodes) {
+			if (node.glyphCount === undefined) continue;
+			for (const [index, count] of node.glyphCount.entries()) {
+				if (count <= 0) continue;
 
-			const glyph = this._glyphAtlas!.glyphs[index];
+				const glyph = this._glyphAtlas!.glyphs[index];
 
-			const meshes = new Array<THREE.Mesh>();
-			const positions = new Array<THREE.InstancedBufferAttribute>();
+				const meshes = new Array<THREE.Mesh>();
+				const positions = new Array<THREE.InstancedBufferAttribute>();
 
-			if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod); });
-			else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod);
+				const glyphToCsvMapping = node.glyphToCsvMapping;
+				if (glyphToCsvMapping === undefined) continue;
 
-			this._instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
+				if (glyph.children.length > 0) glyph.traverse((object: THREE.Object3D) => { if (object.type === 'Mesh') this.createInstancedMesh(object as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod, glyphToCsvMapping); });
+				else if (glyph.type === 'Mesh') this.createInstancedMesh(glyph as THREE.Mesh, count, index, meshes, positions, this._mappings!.instancingMethod, glyphToCsvMapping);
 
-			for (const mesh of meshes) {
-				this._glyphGroup.add(mesh);
+				//this._instancedGlyphs[index] = { meshes: meshes, positionAttributes: positions };
+				this._instancedGlyphs.push({ meshes: meshes, positionAttributes: positions });
+
+				for (const mesh of meshes) {
+					node.storeDirect(mesh);
+					this._glyphGroup.add(mesh);
+				}
 			}
 		}
+
+		console.log(this._glyphQuadTree.mergeGlyphCount());
+		console.log(this._glyphGroup.children);
 
 		this.renderingManager.requestUpdate();
 	}
 
-	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>, instancingMethod: InstancingMethod): void {
+	protected createInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, positions: Array<THREE.InstancedBufferAttribute>, instancingMethod: InstancingMethod, glyphToCsvMapping: GlyphToCsvMapping): void {
 		let geometry: THREE.BufferGeometry | THREE.InstancedBufferGeometry;
 		if (instancingMethod === InstancingMethod.InstancedMesh) geometry = new THREE.BufferGeometry();
 		else if (instancingMethod === InstancingMethod.InstancedBufferGeometry) geometry = new THREE.InstancedBufferGeometry();
 		else if (instancingMethod === InstancingMethod.None) {
-			this.emulateInstancedMesh(mesh, count, glyphIndex, meshes);
+			this.emulateInstancedMesh(mesh, count, glyphIndex, meshes, glyphToCsvMapping);
 			return;
 		}
 		else return;
@@ -214,7 +227,7 @@ export class SceneManager {
 		const ids = new Float32Array(count);
 
 		let arrayIndex = 0;
-		for (const mapping of this.glyphToCsvMapping!) {
+		for (const mapping of glyphToCsvMapping) {
 			const glyphLod = mapping.glyphIndices.indexOf(glyphIndex);
 			if (glyphLod == -1) continue;
 
@@ -236,10 +249,14 @@ export class SceneManager {
 			maxLod = mapping.glyphIndices.length - 1;
 			ids[arrayIndex] = mapping.csvRow;
 
+			this._glyphQuadTree?.addMaxLod(maxLod, position);
+
 			++arrayIndex;
 		}
 
 		if (lod === undefined || maxLod === undefined) return;
+		instancedMesh.userData['lod'] = lod;
+		instancedMesh.userData['maxLod'] = maxLod;
 
 		const positionAttribute = new THREE.InstancedBufferAttribute(positionOffsets, 2);
 		//const lodAttribute = new THREE.InstancedBufferAttribute(lods, 1,);
@@ -342,7 +359,7 @@ export class SceneManager {
 			+ shader.substring(shader.indexOf('}')));
 	}
 
-	protected emulateInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>): void {
+	protected emulateInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, glyphToCsvMapping: GlyphToCsvMapping): void {
 		const meshesArray = new Array<THREE.Mesh>();
 		for (let i = 0; i < count; ++i) {
 			const tempMesh = mesh.clone();
@@ -353,7 +370,7 @@ export class SceneManager {
 		const scale = this._mappings!.basicMappings.size / this._glyphAtlas!.largestExtent;
 
 		let meshIndex = 0;
-		for (const mapping of this.glyphToCsvMapping!) {
+		for (const mapping of glyphToCsvMapping) {
 			const lod = mapping.glyphIndices.indexOf(glyphIndex);
 			if (lod === -1) continue;
 
@@ -387,9 +404,6 @@ export class SceneManager {
 	protected calculateIndicesForGlyphs(): void {
 		if (!this.sceneCanBeDrawn()) return;
 
-		this.glyphToCsvMapping = new Array(this._csv!.csv.length - 1);
-		this.glyphCount = new Array<number>(this._glyphAtlas!.glyphs.length).fill(0);
-
 		const warnings: Warnings = {
 			notCastable: undefined,
 			rounding: undefined,
@@ -397,13 +411,16 @@ export class SceneManager {
 			noValidVariant: undefined
 		};
 
+		this._glyphQuadTree!.clear();
+
 		for (const [index, row] of this._csv!.csv.entries()) {
 			if (index === 0) continue;
+			const position = this.calculatePosition(row);
 			const glyphIndicesWithWarnings = this.calculateIndicesForGlyph(row);
 			this.mergeWarnings(warnings, glyphIndicesWithWarnings.warnings);
 			if (glyphIndicesWithWarnings.indices == null) continue;
-			this.glyphToCsvMapping[index - 1] = { glyphIndices: glyphIndicesWithWarnings.indices, csvRow: index };
-			for (const index of glyphIndicesWithWarnings.indices) ++this.glyphCount[index];
+			this._glyphQuadTree!.setGlyphToCsvMapping({ glyphIndices: glyphIndicesWithWarnings.indices, csvRow: index }, position);
+			for (const index of glyphIndicesWithWarnings.indices) this._glyphQuadTree!.incrementGlyphCount(index, position);
 		}
 
 		this.printWarnings(warnings);
@@ -520,6 +537,7 @@ export class SceneManager {
             && this._mappings.requiredMappings.positionY !== ''
             && this._mappings.requiredMappings.glyphType !== ''
             && this._glyphAtlas !== undefined
+			&& this._glyphQuadTree !== undefined
 		);
 	}
 
@@ -546,6 +564,10 @@ export class SceneManager {
 
 	public get glyphGroup(): THREE.Group {
 		return this._glyphGroup;
+	}
+
+	public get glyphQuadTree(): QuadTree | undefined {
+		return this._glyphQuadTree;
 	}
 
 	public async update(value: MappingsUpdate): Promise<void> {
@@ -588,7 +610,11 @@ export class SceneManager {
 		if (value.basicMappings?.glyphAtlas) {
 			if (this._mappings?.basicMappings.glyphAtlas !== undefined) {
 				const possibleGlyphAtlas = await this.glyphLoader.getGlyphAtlas(this._mappings?.basicMappings.glyphAtlas + '.json');
-				if (possibleGlyphAtlas !== null) this._glyphAtlas = possibleGlyphAtlas;
+				if (possibleGlyphAtlas !== null) {
+					this._glyphAtlas = possibleGlyphAtlas;
+					this.findAttributeBounds();
+					this._glyphQuadTree = new QuadTree(4, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
+				}
 			}
 			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();

@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+export type GlyphToCsvMapping = Array<GlyphToCsvMap>;
+type GlyphToCsvMap = { glyphIndices: Array<number>, csvRow: number };
+
 export class QuadTree {
 	/*
 	Layout of children:
@@ -11,6 +14,7 @@ export class QuadTree {
 	protected meshes: Array<THREE.Mesh | THREE.InstancedMesh> | undefined;
 	protected maxLods: Set<number>;
 	protected _glyphCount: Array<number> | undefined;
+	protected _glyphToCsvMapping: GlyphToCsvMapping | undefined;
 
 	protected minX: number;
 	protected minY: number;
@@ -23,6 +27,8 @@ export class QuadTree {
 	protected halfWidth: number;
 	protected halfHeight: number;
 
+	protected numGlyphs: number;
+
 	/**
 	 *
 	 * @param levels
@@ -34,6 +40,7 @@ export class QuadTree {
 	 */
 	constructor(levels: number, numGlyphs: number, minX: number, minY: number, maxX: number, maxY: number) {
 		this.maxLods = new Set<number>();
+		this.numGlyphs = numGlyphs;
 
 		this.minX = minX;
 		this.minY = minY;
@@ -55,6 +62,7 @@ export class QuadTree {
 		} else {
 			this.meshes = new Array<THREE.Mesh | THREE.InstancedMesh>();
 			this._glyphCount = new Array<number>(numGlyphs).fill(0);
+			this._glyphToCsvMapping = new Array<GlyphToCsvMap>();
 		}
 	}
 
@@ -72,6 +80,25 @@ export class QuadTree {
 					this.children[0].incrementGlyphCount(meshId, position);
 				} else {
 					this.children[2].incrementGlyphCount(meshId, position);
+				}
+			}
+		}
+	}
+
+	public setGlyphToCsvMapping(value: GlyphToCsvMap, position: THREE.Vector2): void {
+		if (this.children === undefined) this._glyphToCsvMapping!.push(value);
+		else {
+			if (position.x >= this.avgX) {
+				if (position.y >= this.avgY) {
+					this.children[1].setGlyphToCsvMapping(value, position);
+				} else {
+					this.children[3].setGlyphToCsvMapping(value, position);
+				}
+			} else {
+				if (position.y >= this.avgY) {
+					this.children[0].setGlyphToCsvMapping(value, position);
+				} else {
+					this.children[2].setGlyphToCsvMapping(value, position);
 				}
 			}
 		}
@@ -96,7 +123,13 @@ export class QuadTree {
 		}
 	}
 
-	protected updateVisibility(cameraPosition: THREE.Vector3, lodThreshold: number): void {
+	public storeDirect(mesh: THREE.Mesh): void {
+		if (this.meshes === undefined) return;
+
+		this.meshes.push(mesh);
+	}
+
+	public updateVisibility(cameraPosition: THREE.Vector3, lodThreshold: number): void {
 		for (const maxLod of this.maxLods) {
 			const visibleLods = new Array<boolean>(maxLod);
 
@@ -116,7 +149,7 @@ export class QuadTree {
 					}
 				} else { // This LoD is not used in any of the children or meshes
 					if (this.children === undefined) {
-						visibleLods[lod] = false;
+						visibleLods[lod] = lod === maxLod;
 					} else {
 						for (const node of this.children) {
 							node.setVisibility(maxLod, visibleLods);
@@ -149,13 +182,57 @@ export class QuadTree {
 		return result;
 	}
 
+	public addMaxLod(value: number, position: THREE.Vector2): void {
+		this.maxLods.add(value);
+		if (this.children === undefined) return;
+		if (position.x >= this.avgX) {
+			if (position.y >= this.avgY) {
+				this.children[1].addMaxLod(value, position);
+			} else {
+				this.children[3].addMaxLod(value, position);
+			}
+		} else {
+			if (position.y >= this.avgY) {
+				this.children[0].addMaxLod(value, position);
+			} else {
+				this.children[2].addMaxLod(value, position);
+			}
+		}
+	}
+
 	public get glyphCount(): Array<number> | undefined {
 		return this._glyphCount;
 	}
 
+	public get glyphToCsvMapping(): GlyphToCsvMapping | undefined {
+		return this._glyphToCsvMapping;
+	}
+
+	public mergeGlyphCount(): Array<number> {
+		const result = new Array<number>(this.numGlyphs).fill(0);
+
+		if (this._glyphCount === undefined) {
+			for (const child of this.children!) {
+				const childGlyphCount = child.mergeGlyphCount();
+				for (let i = 0; i < childGlyphCount.length; ++i) {
+					result[i] += childGlyphCount[i];
+				}
+			}
+		} else {
+			for (let i = 0; i < this._glyphCount.length; ++i) {
+				result[i] += this._glyphCount[i];
+			}
+		}
+
+		return result;
+	}
+
 	public clear(): void {
-		if (this.children === undefined) this.meshes = new Array<THREE.Mesh | THREE.InstancedMesh>();
-		else {
+		if (this.children === undefined) {
+			this.meshes = new Array<THREE.Mesh | THREE.InstancedMesh>();
+			this._glyphCount = new Array(this.numGlyphs).fill(0);
+			this.maxLods = new Set<number>();
+		} else {
 			for (const child of this.children) child.clear();
 		}
 	}
