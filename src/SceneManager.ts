@@ -608,11 +608,18 @@ export class SceneManager {
 				if (possibleGlyphAtlas !== null) {
 					this._glyphAtlas = possibleGlyphAtlas;
 					this.findAttributeBounds();
-					this._glyphQuadTree = new QuadTree(2, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
+					this._glyphQuadTree = new QuadTree(this._mappings.quadtreeDepth, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
 				}
 			}
 			this.calculateIndicesForGlyphs();
 			this.createInstancedMeshes();
+		}
+		if (value.quadtreeDepth) {
+			if (this._glyphAtlas !== undefined && this._mappings !== undefined) {
+				this._glyphQuadTree = new QuadTree(this._mappings.quadtreeDepth, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
+				this.calculateIndicesForGlyphs();
+				this.createInstancedMeshes();
+			}
 		}
 		if (value.shadowMapSettings?.sizeExponent) {
 			const shadowMapResolution = 2 ** this._mappings!.shadowMapSettings.sizeExponent;

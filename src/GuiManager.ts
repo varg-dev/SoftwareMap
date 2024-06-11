@@ -7,6 +7,7 @@ export type Mappings = {
 	instancingMethod: InstancingMethod,
 	numberBenchmarkingFrames: number,
 	lodThreshold: number,
+	quadtreeDepth: number,
 	labelSettings: {
 		labelSize: number,
 		labelOffset: number
@@ -30,6 +31,7 @@ export type Mappings = {
 export type MappingsUpdate = {
 	instancingMethod?: boolean,
 	lodThreshold?: boolean,
+	quadtreeDepth?: boolean,
 	labelSettings?: {
 		labelSize?: boolean,
 		labelOffset?: boolean
@@ -86,6 +88,7 @@ export class GuiManager {
 			instancingMethod: InstancingMethod.InstancedBufferGeometry,
 			numberBenchmarkingFrames: 500,
 			lodThreshold: 0.75,
+			quadtreeDepth: 3,
 			labelSettings: {
 				labelSize: 0.01,
 				labelOffset: 0.01
@@ -134,6 +137,10 @@ export class GuiManager {
 		});
 		this.mainGui.add(this.mappings, 'instancingMethod', {None: InstancingMethod.None, InstancedMesh: InstancingMethod.InstancedMesh, InstancedBufferGeometry: InstancingMethod.InstancedBufferGeometry}).name('Instancing method').onChange(async () => {
 			await this.sceneManager.update({ instancingMethod: true });
+			this.updateURL();
+		});
+		this.mainGui.add(this.mappings, 'quadtreeDepth').name('Depth of QuadTree').onFinishChange(async () => {
+			await this.sceneManager.update({ quadtreeDepth: true });
 			this.updateURL();
 		});
 
