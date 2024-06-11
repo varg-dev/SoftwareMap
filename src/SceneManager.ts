@@ -407,6 +407,7 @@ export class SceneManager {
 		};
 
 		this._glyphQuadTree!.clear();
+		this.findAttributeBounds();
 
 		for (const [index, row] of this._csv!.csv.entries()) {
 			if (index === 0) continue;
@@ -607,7 +608,6 @@ export class SceneManager {
 				const possibleGlyphAtlas = await this.glyphLoader.getGlyphAtlas(this._mappings?.basicMappings.glyphAtlas + '.json');
 				if (possibleGlyphAtlas !== null) {
 					this._glyphAtlas = possibleGlyphAtlas;
-					this.findAttributeBounds();
 					this._glyphQuadTree = new QuadTree(this._mappings.quadtreeDepth, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
 				}
 			}
