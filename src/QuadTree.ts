@@ -129,9 +129,8 @@ export class QuadTree {
 						}
 					}
 				} else { // This LoD is not used in any of the children or meshes
-					if (this.children === undefined) {
-						visibleLods[lod] = lod === maxLod;
-					} else {
+					visibleLods[lod] = false;
+					if (this.children !== undefined) {
 						for (const node of this.children) {
 							node.setVisibility(maxLod, visibleLods);
 						}
