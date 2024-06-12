@@ -217,29 +217,75 @@ export class RenderingManager {
 		const warmupFactor = 0.5;
 		let remainingFrames = Math.round(numFrames * (1 + warmupFactor));
 		let begin: number;
+		let oldBegin: number;
 		let end: number;
 		const rotationMatrix = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), 2 * Math.PI / Math.round(numFrames * (1 + warmupFactor)));
 		const origin = new THREE.Vector3(0, 0, 0);
 
 		this.resetCamera();
 
+		const deltaTimes = new Array<number>();
 		const callback = () => {
-			if (remainingFrames === numFrames) begin = performance.now();
-			--remainingFrames;
+			if (remainingFrames <= numFrames) {
+				oldBegin = begin;
+				begin = performance.now();
+			}
+
 			this.render();
 
-			if (remainingFrames < 0) {
+			if (remainingFrames < numFrames) {
 				end = performance.now();
-				const elapsed = end - begin;
-				console.log('Elapsed time: ' + elapsed + 'ms', 'Average fps: ' + numFrames / (elapsed / 1000));
-				this.resetCamera();
-				console.log('\n----------\nEnd of benchmark.\n----------\n\n');
+				deltaTimes.push(end - oldBegin);
 			}
+
+			--remainingFrames;
+			if (remainingFrames < 0) getResult();
 
 			this.camera.position.applyMatrix4(rotationMatrix);
 			this.camera.lookAt(origin);
 
 			if (remainingFrames >= 0) requestAnimationFrame(callback);
+		};
+
+		const getResult = () => {
+			const sumTime = deltaTimes.reduce((previousValue: number, currentValue: number) => { return previousValue + currentValue; }, 0);
+			console.log('Elapsed time: ' + sumTime + 'ms', 'Average fps: ' + numFrames / (sumTime / 1000));
+
+			deltaTimes.sort((a, b) => a - b);
+			const avgFT = sumTime / deltaTimes.length;
+			const maxFT = deltaTimes[deltaTimes.length - 1];
+			const zeroPointOneHFT = deltaTimes[Math.round((deltaTimes.length - 1) * 0.999)];
+			const oneHFT = deltaTimes[Math.round((deltaTimes.length - 1) * 0.99)];
+			const medFT = deltaTimes[Math.round((deltaTimes.length - 1) / 2)];
+			const oneLFT = deltaTimes[Math.round((deltaTimes.length - 1) * 0.01)];
+			const zeroPointOneLFT = deltaTimes[Math.round((deltaTimes.length - 1) * 0.001)];
+			const minFT = deltaTimes[0];
+
+			console.log( 'Min fps: ' + 1 / (maxFT / 1000) + ', 0.1% low: ' + 1 / (zeroPointOneHFT / 1000) + ', 1% low: ' + 1 / (oneHFT / 1000)
+				+ ', median: ' + 1 / (medFT / 1000)
+				+ ', 1% high: ' + 1 / (oneLFT / 1000) + ', 0.1% high: ' + 1 / (zeroPointOneLFT / 1000) + ', max: ' + 1 / (minFT / 1000) );
+			this.resetCamera();
+
+			let stringRepresentation = JSON.stringify(deltaTimes);
+			stringRepresentation = '"' + stringRepresentation.substring(1, stringRepresentation.length - 1) + '"';
+			stringRepresentation = 'InstancingMethod,QuadtreeDepth,GlyphAtlas,AvgFT,MinFT,0.1LFT,1LFT,MedFT,1HFT,0.1HFT,MaxFT,Frametimes\n'
+				+ InstancingMethod[this.sceneManager.mappings!.instancingMethod] + ',' + this.sceneManager.mappings!.quadtreeDepth + ',' + this.sceneManager.mappings!.basicMappings.glyphAtlas + ','
+				+ avgFT + ',' + minFT + ',' + zeroPointOneLFT + ',' + oneLFT + ',' + medFT + ',' + oneHFT + ',' + zeroPointOneHFT + ',' + maxFT + ','
+				+ stringRepresentation;
+
+			const file = new File([stringRepresentation], 'benchmark_' + new Date().toISOString().replace(':', '_').replace('.', '_') + '.csv', { type: 'text/csv' });
+			const link = document.createElement('a');
+			const url = URL.createObjectURL(file);
+
+			link.href = url;
+			link.download = file.name;
+			document.body.appendChild(link);
+			link.click();
+
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(url);
+
+			console.log('\n----------\nEnd of benchmark.\n----------\n\n');
 		};
 
 		requestAnimationFrame(callback);
