@@ -18,7 +18,11 @@ export class RenderingManager {
 
 	readonly controls!: WorldInHandControls;
 
+	protected benchmarkResults: string;
+
 	constructor() {
+		this.benchmarkResults = 'InstancingMethod,QuadtreeDepth,GlyphAtlas,UseShadows,AvgFT,MinFT,0.1LFT,1LFT,MedFT,1HFT,0.1HFT,MaxFT,NumFrames,Frametimes\n';
+
 		this.updateRequested = false;
 		this.div = document.getElementById('threeJsDiv') as HTMLElement;
 
@@ -268,26 +272,33 @@ export class RenderingManager {
 
 			let stringRepresentation = JSON.stringify(deltaTimes);
 			stringRepresentation = '"' + stringRepresentation.substring(1, stringRepresentation.length - 1) + '"';
-			stringRepresentation = 'InstancingMethod,QuadtreeDepth,GlyphAtlas,AvgFT,MinFT,0.1LFT,1LFT,MedFT,1HFT,0.1HFT,MaxFT,Frametimes\n'
-				+ InstancingMethod[this.sceneManager.mappings!.instancingMethod] + ',' + this.sceneManager.mappings!.quadtreeDepth + ',' + this.sceneManager.mappings!.basicMappings.glyphAtlas + ','
+			stringRepresentation = InstancingMethod[this.sceneManager.mappings!.instancingMethod] + ',' + this.sceneManager.mappings!.quadtreeDepth + ',' + this.sceneManager.mappings!.basicMappings.glyphAtlas + ',' + this.sceneManager.mappings!.shadowMapSettings.enabled + ','
 				+ avgFT + ',' + minFT + ',' + zeroPointOneLFT + ',' + oneLFT + ',' + medFT + ',' + oneHFT + ',' + zeroPointOneHFT + ',' + maxFT + ','
-				+ stringRepresentation;
+				+ this.sceneManager.mappings!.numberBenchmarkingFrames + ',' + stringRepresentation + '\n';
 
-			const file = new File([stringRepresentation], 'benchmark_' + new Date().toISOString().replace(':', '_').replace('.', '_') + '.csv', { type: 'text/csv' });
-			const link = document.createElement('a');
-			const url = URL.createObjectURL(file);
-
-			link.href = url;
-			link.download = file.name;
-			document.body.appendChild(link);
-			link.click();
-
-			document.body.removeChild(link);
-			window.URL.revokeObjectURL(url);
+			this.benchmarkResults = this.benchmarkResults + stringRepresentation;
 
 			console.log('\n----------\nEnd of benchmark.\n----------\n\n');
 		};
 
 		requestAnimationFrame(callback);
+	}
+
+	public downloadBenchmarkResult(): void {
+		const file = new File(
+			[this.benchmarkResults],
+			'benchmark_' + new Date().toISOString().replace(':', '_').replace('.', '_') + '.csv',
+			{ type: 'text/csv' });
+
+		const link = document.createElement('a');
+		const url = URL.createObjectURL(file);
+
+		link.href = url;
+		link.download = file.name;
+		document.body.appendChild(link);
+		link.click();
+
+		document.body.removeChild(link);
+		window.URL.revokeObjectURL(url);
 	}
 }

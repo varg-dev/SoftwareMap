@@ -129,6 +129,7 @@ export class GuiManager {
 	protected addMainGui(): void {
 		this.mainGui.add({ reset: () => this.renderingManager.resetCamera() }, 'reset').name('Reset camera');
 		this.mainGui.add({ benchmark: () => this.renderingManager.benchmark() }, 'benchmark').name('Benchmark');
+		this.mainGui.add({ getBenchmarkResults: () => this.renderingManager.downloadBenchmarkResult() }, 'getBenchmarkResults').name('Download benchmark results');
 		this.mainGui.add(this.mappings, 'numberBenchmarkingFrames').name('Number of frames to render in benchmark').onChange(() => this.updateURL());
 
 		this.mainGui.add(this.mappings, 'lodThreshold').name('Distance threshold for LoD').min(0).max(3).onChange(async () => {
