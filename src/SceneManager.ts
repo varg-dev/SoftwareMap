@@ -89,7 +89,7 @@ export class SceneManager {
 		// Grid
 		const plane = new THREE.Mesh(
 			new THREE.PlaneGeometry(2.25, 2.25),
-			new THREE.MeshPhongMaterial({ color: 0xeef0f4, side: THREE.DoubleSide })
+			new THREE.MeshPhongMaterial({ color: 0xffffff, side: THREE.DoubleSide })
 		);
 		plane.rotateX(Math.PI / 2);
 		plane.translateY(-0.0001);
