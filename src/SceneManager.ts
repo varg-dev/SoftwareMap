@@ -62,10 +62,10 @@ export class SceneManager {
 	}
 
 	protected setUpStaticElements(): void {
-		this.scene.background = new THREE.Color(0xaaaacc);
+		this.scene.background = new THREE.Color(0xfafafa);
 
 		// Lighting
-		this.staticElements.add(new THREE.AmbientLight(0xdddddd));
+		this.staticElements.add(new THREE.AmbientLight(0xffffff));
 		this.spotLight = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 2.1, 0, 0);
 		this.spotLight.castShadow = true;
 		const shadowMapResolution = 2 ** 13;
@@ -89,7 +89,7 @@ export class SceneManager {
 		// Grid
 		const plane = new THREE.Mesh(
 			new THREE.PlaneGeometry(2.25, 2.25),
-			new THREE.MeshPhongMaterial({ color: 0xccccdd, side: THREE.DoubleSide })
+			new THREE.MeshPhongMaterial({ color: 0xeef0f4, side: THREE.DoubleSide })
 		);
 		plane.rotateX(Math.PI / 2);
 		plane.translateY(-0.0001);

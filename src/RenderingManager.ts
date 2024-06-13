@@ -225,10 +225,11 @@ export class RenderingManager {
 		let end: number;
 		const rotationMatrix = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), 2 * Math.PI / Math.round(numFrames * (1 + warmupFactor)));
 		const origin = new THREE.Vector3(0, 0, 0);
+		let frameIndex = 0;
 
 		this.resetCamera();
 
-		const deltaTimes = new Array<number>();
+		const deltaTimes = new Array<number>(numFrames);
 		const callback = () => {
 			if (remainingFrames <= numFrames) {
 				oldBegin = begin;
@@ -239,7 +240,7 @@ export class RenderingManager {
 
 			if (remainingFrames < numFrames) {
 				end = performance.now();
-				deltaTimes.push(end - oldBegin);
+				deltaTimes[frameIndex++] = end - oldBegin;
 			}
 
 			--remainingFrames;
