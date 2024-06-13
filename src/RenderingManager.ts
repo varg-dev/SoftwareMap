@@ -21,7 +21,7 @@ export class RenderingManager {
 	protected benchmarkResults: string;
 
 	constructor() {
-		this.benchmarkResults = 'InstancingMethod,QuadtreeDepth,GlyphAtlas,UseShadows,AvgFT,MinFT,0.1LFT,1LFT,MedFT,1HFT,0.1HFT,MaxFT,NumFrames,Frametimes\n';
+		this.benchmarkResults = '';
 
 		this.updateRequested = false;
 		this.div = document.getElementById('threeJsDiv') as HTMLElement;
@@ -253,6 +253,8 @@ export class RenderingManager {
 		};
 
 		const getResult = () => {
+			this.benchmarkResults = 'Resolution,InstancingMethod,QuadtreeDepth,GlyphAtlas,UseShadows,Frametime,Framerate\n';
+			const resolution = this.renderer.getSize(new THREE.Vector2);
 			const sumTime = deltaTimes.reduce((previousValue: number, currentValue: number) => { return previousValue + currentValue; }, 0);
 			console.log('Elapsed time: ' + sumTime + 'ms', 'Average fps: ' + numFrames / (sumTime / 1000));
 
@@ -271,11 +273,10 @@ export class RenderingManager {
 				+ ', 1% high: ' + 1 / (oneLFT / 1000) + ', 0.1% high: ' + 1 / (zeroPointOneLFT / 1000) + ', max: ' + 1 / (minFT / 1000) );
 			this.resetCamera();
 
-			let stringRepresentation = JSON.stringify(deltaTimes);
-			stringRepresentation = '"' + stringRepresentation.substring(1, stringRepresentation.length - 1) + '"';
-			stringRepresentation = InstancingMethod[this.sceneManager.mappings!.instancingMethod] + ',' + this.sceneManager.mappings!.quadtreeDepth + ',' + this.sceneManager.mappings!.basicMappings.glyphAtlas + ',' + this.sceneManager.mappings!.shadowMapSettings.enabled + ','
-				+ avgFT + ',' + minFT + ',' + zeroPointOneLFT + ',' + oneLFT + ',' + medFT + ',' + oneHFT + ',' + zeroPointOneHFT + ',' + maxFT + ','
-				+ this.sceneManager.mappings!.numberBenchmarkingFrames + ',' + stringRepresentation + '\n';
+			let stringRepresentation = '';
+			for (const deltaTime of deltaTimes) {
+				stringRepresentation += resolution.x + 'x' + resolution.y + ',' + InstancingMethod[this.sceneManager.mappings!.instancingMethod] + ',' + this.sceneManager.mappings!.quadtreeDepth + ',' + this.sceneManager.mappings!.basicMappings.glyphAtlas + ',' + this.sceneManager.mappings!.shadowMapSettings.enabled + ',' + deltaTime + ',' + (1000 / deltaTime) + '\n';
+			}
 
 			this.benchmarkResults = this.benchmarkResults + stringRepresentation;
 
