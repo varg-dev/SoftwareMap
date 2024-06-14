@@ -259,7 +259,6 @@ export class RenderingManager {
 			console.log('Elapsed time: ' + sumTime + 'ms', 'Average fps: ' + numFrames / (sumTime / 1000));
 
 			deltaTimes.sort((a, b) => a - b);
-			const avgFT = sumTime / deltaTimes.length;
 			const maxFT = deltaTimes[deltaTimes.length - 1];
 			const zeroPointOneHFT = deltaTimes[Math.round((deltaTimes.length - 1) * 0.999)];
 			const oneHFT = deltaTimes[Math.round((deltaTimes.length - 1) * 0.99)];
@@ -287,9 +286,22 @@ export class RenderingManager {
 	}
 
 	public downloadBenchmarkResult(): void {
+		let instancingMethod: string = '';
+		if (this.sceneManager.mappings!.instancingMethod === InstancingMethod.None) instancingMethod = 'none';
+		else if (this.sceneManager.mappings!.instancingMethod === InstancingMethod.InstancedMesh) instancingMethod = 'im';
+		else if (this.sceneManager.mappings!.instancingMethod === InstancingMethod.InstancedBufferGeometry) instancingMethod = 'ibg';
+
+		let glyphAtlasResolution: string = '';
+		if (this.sceneManager.mappings!.basicMappings.glyphAtlas === 'lodAtlas') glyphAtlasResolution = 'highres';
+		else if (this.sceneManager.mappings!.basicMappings.glyphAtlas === 'lodAtlas_verysmall') glyphAtlasResolution = 'lowres';
+
+		let shadows: string = '';
+		if (this.sceneManager.mappings!.shadowMapSettings.enabled) shadows = 'shadows';
+		else shadows = 'plain';
+
 		const file = new File(
 			[this.benchmarkResults],
-			'benchmark_' + new Date().toISOString().replace(':', '_').replace('.', '_') + '.csv',
+			instancingMethod + '-' + glyphAtlasResolution + '-' + shadows + '.csv',
 			{ type: 'text/csv' });
 
 		const link = document.createElement('a');
