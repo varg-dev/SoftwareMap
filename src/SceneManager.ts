@@ -41,6 +41,7 @@ export class SceneManager {
 	protected _glyphAtlas: GlyphAtlas | undefined;
 	protected _instancedGlyphs: Array<Array<THREE.Mesh | THREE.InstancedMesh>> | undefined;
 	protected materials: Array<THREE.Material> | undefined;
+	protected _lodObjects: Array<THREE.LOD> | undefined;
 
 	protected _mappings: Mappings | undefined;
 	protected xAndYBounds: { min: THREE.Vector2, max: THREE.Vector2 } | undefined;
@@ -154,6 +155,7 @@ export class SceneManager {
 		this.materials = [];
 
 		this._instancedGlyphs = [];
+		this._lodObjects = [];
 		for (const node of this._glyphQuadTree.leafNodes) {
 			if (node.glyphCount === undefined) continue;
 			for (const [index, count] of node.glyphCount.entries()) {
@@ -172,9 +174,16 @@ export class SceneManager {
 
 				this._instancedGlyphs.push(meshes);
 
-				for (const mesh of meshes) {
-					node.storeDirect(mesh);
-					this._glyphGroup.add(mesh);
+				if (this._mappings!.instancingMethod !== InstancingMethod.None) {
+					for (const mesh of meshes) {
+						node.storeDirect(mesh);
+						this._glyphGroup.add(mesh);
+					}
+				} else {
+					for (const lod of this._lodObjects) {
+						if (lod === undefined) continue;
+						this._glyphGroup.add(lod);
+					}
 				}
 			}
 		}
@@ -187,7 +196,7 @@ export class SceneManager {
 		if (instancingMethod === InstancingMethod.InstancedMesh) geometry = new THREE.BufferGeometry();
 		else if (instancingMethod === InstancingMethod.InstancedBufferGeometry) geometry = new THREE.InstancedBufferGeometry();
 		else if (instancingMethod === InstancingMethod.None) {
-			this.emulateInstancedMesh(mesh, count, glyphIndex, meshes, glyphToCsvMapping);
+			this.emulateInstancedMesh(mesh, count, glyphIndex, glyphToCsvMapping);
 			return;
 		}
 		else return;
@@ -354,7 +363,7 @@ export class SceneManager {
 			+ shader.substring(shader.indexOf('}')));
 	}
 
-	protected emulateInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, meshes: Array<THREE.Mesh>, glyphToCsvMapping: GlyphToCsvMapping): void {
+	protected emulateInstancedMesh(mesh: THREE.Mesh, count: number, glyphIndex: number, glyphToCsvMapping: GlyphToCsvMapping): void {
 		const meshesArray = new Array<THREE.Mesh>();
 		for (let i = 0; i < count; ++i) {
 			const tempMesh = mesh.clone();
@@ -373,11 +382,7 @@ export class SceneManager {
 
 			const tempMesh = meshesArray[meshIndex];
 
-			tempMesh.position.set(position.x, 0, position.y);
-			tempMesh.scale.set(scale, scale, scale);
 			tempMesh.castShadow = true; // cannot be optimized to lowest LoD as that would require additional geometry
-			tempMesh.userData['lod'] = lod;
-			tempMesh.userData['maxLod'] = mapping.glyphIndices.length - 1;
 			tempMesh.userData['id'] = mapping.csvRow;
 
 			(tempMesh.material as THREE.Material).onBeforeCompile = (parameters: THREE.WebGLProgramParametersWithUniforms) => {
@@ -390,10 +395,15 @@ export class SceneManager {
 					+ parameters.fragmentShader.substring(insertionPoint);
 			};
 
+			const lodObject = (this._lodObjects![mapping.csvRow] === undefined) ? new THREE.LOD() : this._lodObjects![mapping.csvRow];
+			lodObject.addLevel(tempMesh, this._mappings!.lodThreshold * lod);
+			lodObject.position.set(position.x, 0, position.y);
+			lodObject.scale.set(scale, scale, scale);
+			lodObject.castShadow = true;
+			this._lodObjects![mapping.csvRow] = lodObject;
+
 			++meshIndex;
 		}
-
-		meshes.push(...meshesArray);
 	}
 
 	protected calculateIndicesForGlyphs(): void {

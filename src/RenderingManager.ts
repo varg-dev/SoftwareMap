@@ -121,23 +121,7 @@ export class RenderingManager {
 	protected render() {
 		this.updateRequested = false;
 
-		if (this.sceneManager.mappings?.instancingMethod === InstancingMethod.None) {
-			const glyphs = this.sceneManager.instancedGlyphs;
-			if (glyphs === undefined) return;
-
-			const lodThreshold = this.sceneManager.mappings.lodThreshold;
-
-			for (const glyph of glyphs) {
-				if (glyph === undefined) continue;
-				for (const mesh of glyph) {
-					const distance = this.camera.position.clone().sub(mesh.position).length();
-					const lod: number = mesh.userData['lod'];
-					const maxLod: number = mesh.userData['maxLod'];
-
-					mesh.visible = !((distance > lodThreshold * (lod + 1) && lod < maxLod) || distance <= lodThreshold * lod);
-				}
-			}
-		} else {
+		if (this.sceneManager.mappings?.instancingMethod !== InstancingMethod.None) {
 			const quadTree = this.sceneManager.glyphQuadTree;
 			if (quadTree !== undefined && this.sceneManager.mappings !== undefined) {
 				quadTree.updateVisibility(this.camera.position, this.sceneManager.mappings.lodThreshold);
