@@ -12,8 +12,16 @@ export class SplitLabel {
     constructor(keyString: string, valueString: string, fontFace: FontFace, color: THREE.Color) {
         this.keyColumn = new Label(keyString, fontFace, color);
         this.keyColumn.alignment = Label.Alignment.Right;
+        // @ts-expect-error This is (rightfully) protected, but no other way to change this setting is exposed.
+        this.keyColumn.material.depthFunc = THREE.AlwaysDepth;
+        // @ts-expect-error This is (rightfully) protected, but no other way to change this setting is exposed.
+        this.keyColumn.mesh.renderOrder = -1;
         this.valueColumn = new Label(valueString, fontFace, color);
         this.valueColumn.alignment = Label.Alignment.Left;
+        // @ts-expect-error This is (rightfully) protected, but no other way to change this setting is exposed.
+        this.valueColumn.material.depthFunc = THREE.AlwaysDepth;
+        // @ts-expect-error This is (rightfully) protected, but no other way to change this setting is exposed.
+        this.valueColumn.mesh.renderOrder = -1;
 
         this._position = new Vector3Wrapper(this);
         this._scale = new Vector3Wrapper(this, true);
