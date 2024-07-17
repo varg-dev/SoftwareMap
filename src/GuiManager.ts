@@ -85,7 +85,7 @@ export class GuiManager {
 		this.mainGui = new GUI({title: 'Options'});
 
 		this.mappings = {
-			instancingMethod: InstancingMethod.InstancedBufferGeometry,
+			instancingMethod: InstancingMethod.InstancedMesh,
 			numberBenchmarkingFrames: 500,
 			lodThreshold: 0.75,
 			quadtreeDepth: 3,
