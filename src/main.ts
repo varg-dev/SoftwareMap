@@ -16,10 +16,14 @@ fileUpload.addEventListener('change', checkAndLoadCsv);
 
 async function checkAndLoadCsv() {
 	const fileList = fileUpload.files;
-	if (fileList === null) return;
-	const file = fileList[0];
-	if (file === undefined) return;
-	const csv = await parse(await file.text());
+
+	let csv;
+	if (fileList === null || fileList[0] === undefined) {
+		csv = await parse(await (await fetch('LocPositionsTensorflow.csv')).text());
+	} else {
+		const file = fileList[0];
+		csv = await parse(await file.text());
+	}
 
 	removeLongestCommonPrefix(csv);
 
