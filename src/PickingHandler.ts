@@ -27,7 +27,7 @@ export class PickingHandler {
 		this.canvas = this.sceneManager.renderingManager.canvas;
 
 		this.fontFace = new FontFaceLoader().load(
-			'roboto-regular-f00f2383',
+			'font/roboto-regular-f00f2383',
 			() => { this.canvas.addEventListener('pointerdown', (event: PointerEvent) => { this.handlePointerDown(event); }); },
 			undefined,
 			(error: unknown) => { console.error(error); }
