@@ -133,8 +133,10 @@ export class SceneManager {
 	public set csv(value: CSV) {
 		this._csv = { csv: value };
 
-		if (this._glyphAtlas === undefined) return;
-		if (this._mappings !== undefined) this.findAttributeBounds();
+		if (this._glyphAtlas === undefined || this._mappings === undefined) return;
+		this.findAttributeBounds();
+
+		this._glyphQuadTree = new QuadTree(this._mappings.quadtreeDepth, this._glyphAtlas.glyphs.length, -1, -1, 1, 1);
 
 		this.calculateIndicesForGlyphs();
 		this.createInstancedMeshes();
